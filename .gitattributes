@@ -1,0 +1,21 @@
+# Normalize line endings: text is LF in the repo, checked out native.
+* text=auto
+
+# Explicitly LF for code/config/data so CI and golden-trace comparisons are
+# byte-stable across Windows and Linux.
+*.py    text eol=lf
+*.md    text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.toml  text eol=lf
+*.json  text eol=lf
+*.txt   text eol=lf
+*.geojson text eol=lf
+*.mplstyle text eol=lf
+
+# Binaries — never touch.
+*.png   binary
+*.pdf   binary
+*.jpg   binary
+*.ai    binary
+*.svg   binary
