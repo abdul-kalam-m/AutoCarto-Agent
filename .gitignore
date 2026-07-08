@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.venv/
+venv/
+
+# Local tooling / editor
+.claude/
+.vscode/
+.idea/
+
+# Generated artifacts (regenerable; committed outputs live in output/ and benchmarks/)
+artifacts/
+
+# OS noise
+Thumbs.db
+.DS_Store
