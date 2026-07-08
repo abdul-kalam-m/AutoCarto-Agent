@@ -1,0 +1,196 @@
+{
+  "cases": {
+    "well_behaved": {
+      "gate": "G2",
+      "diagnosis": "well_behaved",
+      "gvf": 0.8937,
+      "passed": true,
+      "prescribed_method": null,
+      "prescribed_breaks": null,
+      "instruction": null,
+      "profile": {
+        "n": 243,
+        "n_unique": 243,
+        "min_val": 24.23253164313614,
+        "max_val": 84.96634959208795,
+        "mean": 49.308098742395856,
+        "median": 48.81817418588692,
+        "std": 10.81730048032043,
+        "skewness": 0.27793140141266254,
+        "kurtosis": 0.05864295088114968,
+        "zero_fraction": 0.0,
+        "outlier_fraction": 0.00823045267489712,
+        "shapiro_w": 0.9936649959574458,
+        "shapiro_p": 0.395676712370877,
+        "iqr": 14.166032285483944
+      },
+      "llm_proposed_method": "jenks",
+      "llm_proposed_breaks": [
+        24.23253164313614,
+        39.641412145169106,
+        45.971424329975214,
+        51.97664042754114,
+        57.91361816616263,
+        84.96634959208795
+      ]
+    },
+    "zero_inflated": {
+      "gate": "G2",
+      "diagnosis": "zero_inflated",
+      "gvf": 0.0,
+      "passed": false,
+      "prescribed_method": "manual_break_at_zero_then_fisher_jenks",
+      "prescribed_breaks": [
+        0.0,
+        7.860857909728592,
+        20.613778237876605,
+        68.8841102979278
+      ],
+      "instruction": "Data is zero-inflated (49.8% zeros). Mandate explicit break at 0, followed by Fisher-Jenks classification for non-zero values. DO NOT propose alternative methods. Use these exact breaks: [0.0, 7.860857909728592, 20.613778237876605, 68.8841102979278]",
+      "profile": {
+        "n": 243,
+        "n_unique": 123,
+        "min_val": 0.0,
+        "max_val": 68.8841102979278,
+        "mean": 2.697774257195957,
+        "median": 1.0279559529602809,
+        "std": 6.334156907055994,
+        "skewness": 6.387676407305984,
+        "kurtosis": 55.071712185236905,
+        "zero_fraction": 0.49794238683127573,
+        "outlier_fraction": 0.08641975308641975,
+        "shapiro_w": 0.425238061241203,
+        "shapiro_p": 3.377386413121383e-27,
+        "iqr": 2.8181326747675355
+      },
+      "llm_proposed_method": "jenks",
+      "llm_proposed_breaks": [
+        0.0,
+        1.5307375601519504,
+        3.953474937522293,
+        68.8841102979278
+      ]
+    },
+    "heavy_right_skew": {
+      "gate": "G2",
+      "diagnosis": "heavy_right_skew",
+      "gvf": 0.0,
+      "passed": false,
+      "prescribed_method": "log_transform_then_jenks",
+      "prescribed_breaks": [
+        1014.6578994790899,
+        3989.88895041789,
+        10543.109929814955,
+        24806.023487159608,
+        73283.77239275721,
+        469392.011222335
+      ],
+      "instruction": "Data is heavily right-skewed (g1=3.65). Apply log1p transform before classification. Use these exact back-transformed breaks: [1014.6578994790899, 3989.88895041789, 10543.109929814955, 24806.023487159608, 73283.77239275721, 469392.011222335]",
+      "profile": {
+        "n": 243,
+        "n_unique": 243,
+        "min_val": 1014.6578994790899,
+        "max_val": 469392.0112223354,
+        "mean": 40239.238614603266,
+        "median": 20235.29310017997,
+        "std": 58816.56342722655,
+        "skewness": 3.6463295282270236,
+        "kurtosis": 17.49851084252532,
+        "zero_fraction": 0.0,
+        "outlier_fraction": 0.08641975308641975,
+        "shapiro_w": 0.6023087137029013,
+        "shapiro_p": 2.4845320328643353e-23,
+        "iqr": 38448.317138085935
+      },
+      "llm_proposed_method": "jenks",
+      "llm_proposed_breaks": [
+        1014.6578994790899,
+        6671.351046503633,
+        14886.692259047099,
+        29659.215061042334,
+        51896.11393830721,
+        469392.0112223354
+      ]
+    },
+    "discrete_ordinal": {
+      "gate": "G2",
+      "diagnosis": "discrete_ordinal",
+      "gvf": 0.0,
+      "passed": false,
+      "prescribed_method": "unique_values",
+      "prescribed_breaks": [
+        1.0,
+        2.0,
+        3.0,
+        4.0,
+        5.0
+      ],
+      "instruction": "Variable is discrete ordinal with 5 unique values. Use unique-value classification. Do not apply continuous breaks.",
+      "profile": {
+        "n": 243,
+        "n_unique": 5,
+        "min_val": 1.0,
+        "max_val": 5.0,
+        "mean": 2.3786008230452675,
+        "median": 2.0,
+        "std": 1.2225062368323414,
+        "skewness": 0.5728347909555253,
+        "kurtosis": -0.6868002749079118,
+        "zero_fraction": 0.0,
+        "outlier_fraction": 0.0,
+        "shapiro_w": 0.8730253262910236,
+        "shapiro_p": 2.4197645806360997e-13,
+        "iqr": 2.0
+      },
+      "llm_proposed_method": "jenks",
+      "llm_proposed_breaks": [
+        1.0,
+        2.0,
+        2.1999999999999886,
+        4.0,
+        5.0
+      ]
+    },
+    "negative_values_arcsinh": {
+      "gate": "G2",
+      "diagnosis": "heavy_right_skew",
+      "gvf": 0.0,
+      "passed": false,
+      "prescribed_method": "arcsinh_transform_then_jenks",
+      "prescribed_breaks": [
+        -0.7985257496346775,
+        -0.23147106046335994,
+        0.3673575750932185,
+        1.3262872978134923,
+        3.047254019650646,
+        9.85260536345389
+      ],
+      "instruction": "Data contains negative values (min=-0.80) and is right-skewed (g1=1.61). Log transform is INVALID for negative inputs. Mandate Inverse Hyperbolic Sine (arcsinh) transform, which handles negative, zero, and positive values symmetrically. Use these exact back-transformed breaks: [-0.7985257496346775, -0.23147106046335994, 0.3673575750932185, 1.3262872978134923, 3.047254019650646, 9.85260536345389]",
+      "profile": {
+        "n": 243,
+        "n_unique": 243,
+        "min_val": -0.7985257496346775,
+        "max_val": 9.85260536345389,
+        "mean": 1.2245314228729969,
+        "median": 0.7183669281817571,
+        "std": 1.826248008630113,
+        "skewness": 1.6092599701975039,
+        "kurtosis": 3.2114597852153013,
+        "zero_fraction": 0.0,
+        "outlier_fraction": 0.037037037037037035,
+        "shapiro_w": 0.8550312680114635,
+        "shapiro_p": 2.3926576750935657e-14,
+        "iqr": 2.1340555457431587
+      },
+      "llm_proposed_method": "jenks",
+      "llm_proposed_breaks": [
+        -0.7985257496346775,
+        -0.23721161684237527,
+        0.2887000337562383,
+        1.215617535527022,
+        2.2231055992830826,
+        9.85260536345389
+      ]
+    }
+  }
+}

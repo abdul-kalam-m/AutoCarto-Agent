@@ -1,0 +1,91 @@
+{
+  "queries": [
+    {
+      "query": "Atlanta tree canopy and respiratory health",
+      "geometry_type": "Polygon",
+      "result": {
+        "spatial_candidates": 3,
+        "semantic_results": 3,
+        "items": [
+          "atl-canopy",
+          "atl-noise",
+          "cdc-asthma"
+        ],
+        "retrieval_time_ms": 0.953,
+        "spatial_filter_time_ms": 0.401,
+        "semantic_search_time_ms": 0.52
+      },
+      "items_detail": [
+        {
+          "id": "atl-canopy",
+          "title": "Atlanta Tree Canopy Loss 2015-2022",
+          "metadata_score": 7
+        },
+        {
+          "id": "atl-noise",
+          "title": "Sensor data 2019",
+          "metadata_score": 2
+        },
+        {
+          "id": "cdc-asthma",
+          "title": "CDC PLACES Asthma Hospitalisation Rate",
+          "metadata_score": 6
+        }
+      ]
+    },
+    {
+      "query": "pedestrian safety incidents",
+      "geometry_type": "Polygon",
+      "result": {
+        "spatial_candidates": 2,
+        "semantic_results": 2,
+        "items": [
+          "nyc-vision-zero",
+          "cdc-asthma"
+        ],
+        "retrieval_time_ms": 0.614,
+        "spatial_filter_time_ms": 0.224,
+        "semantic_search_time_ms": 0.377
+      },
+      "items_detail": [
+        {
+          "id": "nyc-vision-zero",
+          "title": "NYC Vision Zero Pedestrian Injuries 2021",
+          "metadata_score": 6
+        },
+        {
+          "id": "cdc-asthma",
+          "title": "CDC PLACES Asthma Hospitalisation Rate",
+          "metadata_score": 6
+        }
+      ]
+    },
+    {
+      "query": "seabird habitat coastal alaska",
+      "geometry_type": "Polygon",
+      "result": {
+        "spatial_candidates": 2,
+        "semantic_results": 2,
+        "items": [
+          "aleutian-seabird-east",
+          "aleutian-seabird-west"
+        ],
+        "retrieval_time_ms": 0.763,
+        "spatial_filter_time_ms": 0.398,
+        "semantic_search_time_ms": 0.354
+      },
+      "items_detail": [
+        {
+          "id": "aleutian-seabird-east",
+          "title": "Aleutian Seabird Habitat (eastern)",
+          "metadata_score": 6
+        },
+        {
+          "id": "aleutian-seabird-west",
+          "title": "Aleutian Seabird Habitat (western)",
+          "metadata_score": 6
+        }
+      ]
+    }
+  ]
+}

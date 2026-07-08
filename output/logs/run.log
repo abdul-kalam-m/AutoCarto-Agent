@@ -1,0 +1,39 @@
+AutoCarto-Agent demo harness
+timestamp: 2026-05-24 03:26:56Z
+python: 3.14.3, numpy: 2.4.2
+
+=== Gate 2: Classification Diagnostic Engine ===
+        well_behaved: diagnosis=well_behaved           passed=True GVF=0.894 prescribed=None
+       zero_inflated: diagnosis=zero_inflated          passed=False GVF=0.000 prescribed=manual_break_at_zero_then_fisher_jenks
+    heavy_right_skew: diagnosis=heavy_right_skew       passed=False GVF=0.000 prescribed=log_transform_then_jenks
+    discrete_ordinal: diagnosis=discrete_ordinal       passed=False GVF=0.000 prescribed=unique_values
+  negative_values_arcsinh: diagnosis=heavy_right_skew       passed=False GVF=0.000 prescribed=arcsinh_transform_then_jenks
+  -> figure: figures\gate2_distribution_diagnostics.png
+  -> trace : traces\gate2_classification_trace.json
+
+=== Gate 3b: Bivariate Spatial Cross-Correlation ===
+      strong_correlation: decision=APPROVE  I_xy=+0.476 (p=0.005) rho=+0.940
+        weak_correlation: decision=WARN     I_xy=+0.116 (p=0.005) rho=+0.314
+   independent_variables: decision=REJECT   I_xy=-0.025 (p=0.580) rho=+0.012
+  -> figure: figures\gate3b_bivariate_scenarios.png
+  -> bivariate map: figures\gate3b_bivariate_map_approve.png
+  -> trace : traces\gate3b_bivariate_trace.json
+
+=== Hybrid Retrieval (mock Qdrant) ===
+  query='Atlanta tree canopy and respiratory health'            spatial_candidates=3 semantic_results=3 items=['atl-canopy', 'atl-noise', 'cdc-asthma']
+  query='pedestrian safety incidents'                           spatial_candidates=2 semantic_results=2 items=['nyc-vision-zero', 'cdc-asthma']
+  query='seabird habitat coastal alaska'                        spatial_candidates=2 semantic_results=2 items=['aleutian-seabird-east', 'aleutian-seabird-west']
+  -> trace : traces\hybrid_retrieval_trace.json
+
+=== Sandbox (sanitizer + _DevOnlySandboxExecutor) ===
+  OK        production_inprocess_guard          RuntimeError raised as expected: backend='inprocess' is not permitted in SandboxExecutor. Use _DevOnlySandboxExecutor for local testing. See CHANGES.md §sandbox.py issue 5.
+  OK       safe_numpy                       sanitize=True violations=0 exec=True
+  OK       blocked_subprocess_import        sanitize=False violations=2 exec=skipped
+  OK       blocked_eval                     sanitize=False violations=1 exec=skipped
+  OK       blocked_open_write               sanitize=False violations=1 exec=skipped
+  OK       blocked_open_write_kwarg         sanitize=False violations=1 exec=skipped
+  OK       reflection_escape                sanitize=False violations=3 exec=skipped
+  OK       docstring_mentions_subprocess    sanitize=True violations=0 exec=True
+  -> trace : traces\sandbox_trace.json
+
+Total wall-clock: 845.3 ms

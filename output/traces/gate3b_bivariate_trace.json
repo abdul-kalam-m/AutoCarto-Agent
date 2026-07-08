@@ -1,0 +1,31 @@
+{
+  "scenarios": {
+    "strong_correlation": {
+      "gate": "G3b",
+      "bivariate_morans_i": 0.4764,
+      "bivariate_morans_p": 0.005,
+      "spearman_rho": 0.9404,
+      "spearman_p": 0.0,
+      "decision": "APPROVE",
+      "instruction": "Variables exhibit sufficient spatial cross-correlation (I_xy=0.476, rho=0.940) to justify bivariate representation."
+    },
+    "weak_correlation": {
+      "gate": "G3b",
+      "bivariate_morans_i": 0.1162,
+      "bivariate_morans_p": 0.005,
+      "spearman_rho": 0.3143,
+      "spearman_p": 0.0,
+      "decision": "WARN",
+      "instruction": "Weak spatial cross-correlation detected (I_xy=0.116, rho=0.314). Bivariate map approved with mandatory interpretive annotation. Class outlines and correlation statistic must be displayed."
+    },
+    "independent_variables": {
+      "gate": "G3b",
+      "bivariate_morans_i": -0.0251,
+      "bivariate_morans_p": 0.58,
+      "spearman_rho": 0.012,
+      "spearman_p": 0.8488,
+      "decision": "REJECT",
+      "instruction": "Variables exhibit no meaningful spatial cross-correlation (I_xy=-0.025, rho=0.012). MANDATED ALTERNATIVE: Generate side-by-side univariate choropleth maps. Do not produce a bivariate map."
+    }
+  }
+}

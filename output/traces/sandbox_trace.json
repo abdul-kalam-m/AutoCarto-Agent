@@ -1,0 +1,101 @@
+{
+  "cases": [
+    {
+      "name": "safe_numpy",
+      "is_safe": true,
+      "expect_sanitize_pass": true,
+      "expect_exec_success": true,
+      "violations": [],
+      "execution": {
+        "success": true,
+        "stdout_preview": "",
+        "stderr_preview": "",
+        "has_figure": false,
+        "error_type": null,
+        "execution_time_ms": 2.291
+      },
+      "sanitize_match": true,
+      "exec_match": true
+    },
+    {
+      "name": "blocked_subprocess_import",
+      "is_safe": false,
+      "expect_sanitize_pass": false,
+      "expect_exec_success": false,
+      "violations": [
+        "Blocked pattern detected: \\bsubprocess\\b -> ['subprocess', 'subprocess']",
+        "Blocked import: subprocess"
+      ],
+      "execution": null,
+      "sanitize_match": true,
+      "exec_match": true
+    },
+    {
+      "name": "blocked_eval",
+      "is_safe": false,
+      "expect_sanitize_pass": false,
+      "expect_exec_success": false,
+      "violations": [
+        "Blocked pattern detected: \\beval\\s*\\( -> ['eval(']"
+      ],
+      "execution": null,
+      "sanitize_match": true,
+      "exec_match": true
+    },
+    {
+      "name": "blocked_open_write",
+      "is_safe": false,
+      "expect_sanitize_pass": false,
+      "expect_exec_success": false,
+      "violations": [
+        "Blocked open() with write-capable mode: 'w'"
+      ],
+      "execution": null,
+      "sanitize_match": true,
+      "exec_match": true
+    },
+    {
+      "name": "blocked_open_write_kwarg",
+      "is_safe": false,
+      "expect_sanitize_pass": false,
+      "expect_exec_success": false,
+      "violations": [
+        "Blocked open() with write-capable mode: 'a+'"
+      ],
+      "execution": null,
+      "sanitize_match": true,
+      "exec_match": true
+    },
+    {
+      "name": "reflection_escape",
+      "is_safe": false,
+      "expect_sanitize_pass": false,
+      "expect_exec_success": false,
+      "violations": [
+        "Blocked attribute access: .__subclasses__",
+        "Blocked attribute access: .__mro__",
+        "Blocked attribute access: .__class__"
+      ],
+      "execution": null,
+      "sanitize_match": true,
+      "exec_match": true
+    },
+    {
+      "name": "docstring_mentions_subprocess",
+      "is_safe": true,
+      "expect_sanitize_pass": true,
+      "expect_exec_success": true,
+      "violations": [],
+      "execution": {
+        "success": true,
+        "stdout_preview": "",
+        "stderr_preview": "",
+        "has_figure": false,
+        "error_type": null,
+        "execution_time_ms": 1.23
+      },
+      "sanitize_match": true,
+      "exec_match": true
+    }
+  ]
+}
