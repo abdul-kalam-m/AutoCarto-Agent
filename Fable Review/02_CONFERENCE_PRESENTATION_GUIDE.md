@@ -116,8 +116,8 @@ One honest sentence to keep handy: *"Nothing in the gate mathematics is new — 
 | 8 | The arcsinh save | zoom of `negative_values_arcsinh` panel | Story beat (§5.2): the engine caught what the LLM would have silently clamped. |
 | 9 | Gate 3b decision matrix | APPROVE/WARN/REJECT table + `gate3b_bivariate_scenarios.png` | The system refuses map *types*, with a mandated alternative. |
 | 10 | Data fabric | bbox-first diagram + Aleutian case | "Embeddings never get to veto geometry." |
-| 11 | Atlanta case | `atlanta_results_panel_publication.png` | Corrected GVF numbers (0.75→0.83, 0.77→0.86); I_xy=0.326 p=0.005; ρ=0.947. |
-| 12 | Reproducibility | trace JSON excerpt + "byte-identical" diff screenshot | This is what 'deterministic validation' buys you. |
+| 11 | Atlanta case | `atlanta_results_panel.png` (regenerate with `python scripts/gen_results_panel.py` — the old `_publication` suffix is a stale, pre-V1 filename) | Corrected GVF numbers (0.75→0.83, 0.77→0.86); I_xy=0.326 p=0.005; ρ=0.947. |
+| 12 | Reproducibility | trace excerpt + a diff screenshot of **`gate2_classification_trace.json` and `gate3b_bivariate_trace.json` only** — never a whole-folder diff, which would show two harmless timing-only differences in the retrieval/sandbox traces (Poster Copy §5 trace-identity box) | This is what 'deterministic validation' buys you. |
 | 13 | Scope & limitations | Own it: synthetic variables (why), 2/7 gates, benchmark pending, container unbuilt | Pre-empts 80% of hostile Q&A (§7). |
 | 14 | Roadmap | Manual §11 phase strip | Benchmark → full gate suite → gVisor → release. |
 | 15 | Close | One-liner reprise + QR + "the validation runs offline in under 3 seconds — find me" | Invitation, not summary. |
@@ -319,4 +319,4 @@ This is Manual P4-T2/T3 in miniature and becomes the seed of the real benchmark.
 | Patch cycle | 20 fixes: 2 blockers, 3 security, 15 correctness/robustness | CHANGES.md |
 | Diagnosis regimes | 6 (well-behaved, zero-inflated, right-skew→log, negative-skew→**arcsinh**, outlier→head-tail, discrete→unique) | gate2 source |
 
-**Final note.** This project's strongest presentation asset is that its central claims are *demonstrable on demand* — few poster neighbors can rerun their results byte-identically on a laptop in three seconds. Build the talk around that superpower, state the scope honestly, and the hard questions become your best material.
+**Final note.** This project's strongest presentation asset is that its central claims are *demonstrable on demand* — few poster neighbors can rerun their gate verdicts byte-for-byte on a laptop, with the validation itself completing in under three seconds. Build the talk around that superpower, state the scope precisely (which files, which timer — §6.1, Poster Copy §5), and the hard questions become your best material.
