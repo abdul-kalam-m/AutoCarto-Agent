@@ -383,15 +383,25 @@ ax.text((4.72 + T3_BG_X0) / 2, 1.08,
 
 
 # ════════════════════════════════════════════════════════════════════════════════
-# METRIC CALLOUT  (hero stats)
+# METRIC CALLOUT — REMOVED 2026-07-26.
 # ════════════════════════════════════════════════════════════════════════════════
-CL_X0, CL_Y0, CL_W, CL_H = T2_BG_X0, 8.55, T2_BG_W - 0.10, 0.55
-rounded_rect(ax, (CL_X0, CL_Y0), CL_W, CL_H,
-             "#FFF6F6", C_GATE_REJ, lw=1.1, r=0.06, zorder=3)
-ax.text(CL_X0 + CL_W / 2, CL_Y0 + CL_H / 2,
-        "23 % initial proposal rejection rate   ·   100 % sandbox escape prevention",
-        fontsize=7.5, ha="center", va="center",
-        color=C_GATE_REJ, fontweight="bold", zorder=5)
+# The box here ("23% initial proposal rejection rate · 100% sandbox escape
+# prevention") had two problems, found during a figure-regeneration
+# verification pass:
+#   1. Both numbers are exactly the claims the rest of this repo's review
+#      retired: "23%" was never traceable to a real benchmark (see Fable
+#      Review/01_OPERATING_MANUAL.md TD-4) and is superseded by
+#      `autocarto benchmark`'s ground-truth-scored 95.2% (20/21); "100%
+#      sandbox escape prevention" overclaims what a finite attack-vector
+#      suite can honestly say (Presentation Guide Q10 — say "all attempted
+#      vectors in our suite," never "100% of escapes").
+#   2. It was positioned at y=[8.55, 9.10], directly overlapping the
+#      "TIER 2 — DETERMINISTIC EXECUTION ENGINE" zone title at y=9.05,
+#      making both illegible — despite this file's own top-of-file
+#      changelog claiming label collisions were already fixed.
+# If a callout belongs here, source it from a real, regenerable number
+# (e.g. `autocarto benchmark`'s strict decision accuracy) and place it
+# outside [8.5, 9.15] to clear the title. Do not restore the old text.
 
 
 # ════════════════════════════════════════════════════════════════════════════════

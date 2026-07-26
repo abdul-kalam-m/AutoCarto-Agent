@@ -494,21 +494,39 @@ for x, c in zip(xs, cols_g2):
 ax_g2.plot([0.02, 0.98], [header_y - 0.05, header_y - 0.05], color="#aaaaaa", lw=0.6,
            transform=ax_g2.transAxes)
 
+# Short display labels for the method column — matches the phrasing used in
+# Fable Review/06_POSTER_COPY.md Block A ("log-transform + Jenks"), and fixes
+# a text collision: the full "log transform then jenks" (24 chars) ran into
+# the right-aligned "PRESCRIBED" status label at this column width.
+METHOD_DISPLAY = {
+    "log_transform_then_jenks": "log-transform + Jenks",
+    "manual_break_at_zero_then_fisher_jenks": "break-at-0 + Jenks",
+    "arcsinh_transform_then_jenks": "arcsinh + Jenks",
+    "unique_values": "unique values",
+    "head_tail_breaks": "head-tail breaks",
+    "jenks": "jenks",
+}
+
+def _method_label(method_key: str) -> str:
+    return METHOD_DISPLAY.get(method_key, method_key.replace("_", " "))
+
 # Data rows
 rows_g2 = [
     (
         "Tree Canopy Loss",
         g2_canopy.diagnosis.replace("_", " "),
-        (g2_canopy.prescribed_method or "jenks").replace("_", " "),
+        _method_label(g2_canopy.prescribed_method or "jenks"),
         g2_canopy,
     ),
     (
         "Asthma Hosp. Rate",
         g2_asthma.diagnosis.replace("_", " "),
-        (g2_asthma.prescribed_method or "jenks").replace("_", " "),
+        _method_label(g2_asthma.prescribed_method or "jenks"),
         g2_asthma,
     ),
 ]
+
+xs_status = 0.97  # was xs[3]=0.90: gives the method column more clearance
 
 for row_i, (varname, diag, method, res) in enumerate(rows_g2):
     ry  = header_y - 0.22 - row_i * 0.22
@@ -523,7 +541,7 @@ for row_i, (varname, diag, method, res) in enumerate(rows_g2):
                fontstyle="italic")
     ax_g2.text(xs[2], ry, method,       transform=ax_g2.transAxes,
                fontsize=6.5, va="top", ha="left", color="#2471a3")
-    ax_g2.text(xs[3], ry, status_txt,   transform=ax_g2.transAxes,
+    ax_g2.text(xs_status, ry, status_txt, transform=ax_g2.transAxes,
                fontsize=7, fontweight="bold", va="top", ha="right",
                color=status_col)
 

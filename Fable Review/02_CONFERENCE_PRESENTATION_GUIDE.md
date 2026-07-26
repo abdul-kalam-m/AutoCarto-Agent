@@ -39,7 +39,7 @@ Stand left of the poster; walk the visitor left → center → bottom.
 >
 > **[Results, bottom]** "Concrete case: 530 census tracts, Fulton and DeKalb counties, real TIGER geometry — the two variables are synthetic spatial-autoregressive fields, which is deliberate: we know the ground-truth spatial structure, so we can verify the gates decide *correctly*. Both variables are heavily right-skewed; Gate 2 rejected the naive proposal and prescribed log-Jenks — goodness-of-variance fit rises from about 0.75 to 0.84. Gate 3b then checks whether a bivariate map is even justified: bivariate Moran's I of 0.33 at p=0.005 on 199 permutations, Spearman 0.95 — passed, so the bivariate encoding is unlocked. If it hadn't passed, the system would have *refused* and produced side-by-side univariate maps instead."
 >
-> **[Close]** "Everything is seeded and traced — rerunning the pipeline reproduces the statistical trace byte-for-byte. The validated core — the diagnostic gates, the retrieval contract, the sanitizer — runs offline in under three seconds; want to see it?" *(→ demo, §6)*
+> **[Close]** "Everything is seeded and traced — rerunning the pipeline reproduces the statistical trace byte-for-byte. The validated core — the diagnostic gates, the retrieval contract, the sanitizer — runs offline, and the validation itself completes in under three seconds; want to see it?" *(→ demo, §6)*
 
 ---
 
@@ -98,7 +98,7 @@ One honest sentence to keep handy: *"Nothing in the gate mathematics is new — 
 2. **The "23% of proposals rejected" badge (G2 box) is currently unfalsifiable** — no benchmark corpus or ledger exists in the repo (*Manual §7 C9*). Either (a) run the mini-benchmark in §8 (half a day, honest number, likely close), relabeling as *"X% of naive proposals rejected across N scenarios"*, or (b) remove the badge. Do not stand next to a number you cannot regenerate.
 3. **gVisor wording.** The sandbox callout credits gVisor with "Reflection: Blocked" — reflection blocking is the *AST sanitizer* (pre-execution, verified); gVisor is the designed containment layer and has not yet been exercised (no image built). Reword to: *"AST sanitizer: reflection & escape patterns blocked (verified) · Container isolation: gVisor, network-none (design)."* One clause of honesty that disarms the entire sandbox line of attack (Q10).
 4. **Version footer consistency.** Poster says Python 3.14 / PySAL 4.14.1 / GeoPandas 1.1.3; `Codes/environment.yml` pins Python 3.11.8 / GeoPandas 0.14.4. The poster matches the machine that actually ran the figure — fix the env file (Manual P0-T2) so the two artifacts agree.
-5. **Add a "Status & Roadmap" micro-box** (bottom-right, 4 lines): *implemented & verified* (G2, G3b, retrieval, sanitizer — reproducible offline in <3 s) / *specified* (G1, G4, G5, G6, orchestrator, LLM tier) / next: real-variable benchmark. Poster sessions reward candor; this box converts your biggest vulnerability into evidence of rigor.
+5. **Add a "Status & Roadmap" micro-box** (bottom-right, 4 lines): *implemented & verified* (G2, G3b, retrieval, sanitizer — reproducible offline, core validation <3 s) / *specified* (G1, G4, G5, G6, orchestrator, LLM tier) / next: real-variable benchmark. Poster sessions reward candor; this box converts your biggest vulnerability into evidence of rigor.
 6. **Add contact + QR code** to the header (author block currently has name/venue only): repo link (after Manual P0 makes it public-ready) + email. Poster visitors who matter follow up later.
 7. Minor: the left column is a ~200-word wall — cut to a 3-bullet failure gallery; the bottom-left whitespace can host the §5.1 killer figure once made; check the architecture PNG's title/banner overlap at the top edge before reprint (`architecture_boundary.png` shows the red stats banner colliding with the topmost gate box and title text).
 
@@ -120,7 +120,7 @@ One honest sentence to keep handy: *"Nothing in the gate mathematics is new — 
 | 12 | Reproducibility | trace JSON excerpt + "byte-identical" diff screenshot | This is what 'deterministic validation' buys you. |
 | 13 | Scope & limitations | Own it: synthetic variables (why), 2/7 gates, benchmark pending, container unbuilt | Pre-empts 80% of hostile Q&A (§7). |
 | 14 | Roadmap | Manual §11 phase strip | Benchmark → full gate suite → gVisor → release. |
-| 15 | Close | One-liner reprise + QR + "the demo runs offline in 3 seconds — find me" | Invitation, not summary. |
+| 15 | Close | One-liner reprise + QR + "the validation runs offline in under 3 seconds — find me" | Invitation, not summary. |
 
 ### 4.4 Lightning version (5 frames, 3 min)
 
@@ -156,13 +156,19 @@ One honest sentence to keep handy: *"Nothing in the gate mathematics is new — 
 
 ### 6.1 Why this demo is safe (a rare luxury — exploit it)
 
-`demo.py` is **offline, deterministic, dependency-light, and fast** (~1–3 s). No API keys, no network, no conference-WiFi roulette, no LLM nondeterminism on stage. Verified again 2026-07-06: statistical output byte-identical to the committed traces (*Manual §5*).
+`demo.py` is **offline, deterministic, dependency-light, and fast**. No API keys, no network, no conference-WiFi roulette, no LLM nondeterminism on stage. Verified again 2026-07-26: statistical output byte-identical to the committed traces (*Manual §5*).
+
+**Timing, precisely (re-measured 2026-07-26):** the tool's own internal timer — printed as `Total wall-clock: ... ms` at the end of the run — stayed under 2.7 s across every test. The *total command latency*, stopwatch-to-stopwatch, measured 3.5–6.1 s, because Python/NumPy/SciPy/Matplotlib interpreter startup adds a few seconds that the internal timer doesn't count. **Say "the validation itself is under 3 seconds" and point at the printed line — never promise the whole command finishes in under 3 seconds.** An audience member with a phone timer will catch the difference.
 
 ### 6.2 Setup (before leaving for the conference)
 
 ```bash
 # The known-good interpreter on the dev laptop (PATH python lacks scipy!):
-C:\Users\abdul\AppData\Local\Python\bin\python.exe output/codes_patched/demo.py
+# The package is now pip-installed (V1 build) — this replaces the old direct
+# output/codes_patched/demo.py invocation, which still exists but is frozen.
+C:\Users\abdul\AppData\Local\Python\bin\python.exe -m autocarto.demo
+# or, if `autocarto` is on PATH after `pip install -e .`:
+autocarto demo
 ```
 - Dry-run on battery + on the actual presentation laptop; pre-open `output/figures/` thumbnails and one trace JSON in an editor tab.
 - Record a 45-second screen capture of the run as the fallback (GIF/MP4 on the phone too).
@@ -251,7 +257,7 @@ Rehearse the first eight; skim the rest. Format: question → the answer that is
 | Architecture, authority boundary, prescription mechanism | implemented at core, verified | **Assert** |
 | Atlanta: 530 tracts, I_xy=+0.3262 (p=0.0050, 199 perms), ρ=+0.9471 | reproduced exactly | **Assert** |
 | GVF improvement | verified this review | **Assert with corrected numbers**: 0.751→0.835 / 0.774→0.861 (never 0.894) |
-| Byte-identical statistical traces; offline <3 s demo | verified | **Assert** (and demo it) |
+| Byte-identical statistical traces; offline, core validation <3 s | verified | **Assert** — but say "core validation," never promise the whole command finishes in <3 s (interpreter startup alone takes 3.5–6 s; see §6.1) |
 | Antimeridian handling; arcsinh negative-support catch | verified | **Assert** (great war stories) |
 | Sandbox sanitization | verified for 7 attack classes | **Soften wording**: "all attempted vectors in our suite" — never "100% of escapes" |
 | gVisor air-gapped execution | designed, never run | **Soften**: "designed for gVisor; containment layer under validation" |
@@ -308,7 +314,7 @@ This is Manual P4-T2/T3 in miniature and becomes the seed of the real benchmark.
 | Gate 2 triggers | 40% zeros · skew 1.5 · >10% outliers · ≤10 unique · GVF ≥0.6 | gate2 source |
 | Grid demo scenarios | APPROVE +0.476 (p=.005) · WARN +0.116 · REJECT −0.025 (p=.580) | demo trace |
 | Iteration cap | 3, then human escalation | Gate 2 |
-| Demo runtime | <3 s, fully offline, statistical traces **byte-identical** across runs | verified 2026-07-06 |
+| Demo runtime | core validation <3 s (the tool's own printed timer), fully offline, statistical traces **byte-identical** across runs. Total command latency incl. Python/library startup: 3.5–6 s — don't quote "<3 s" for the whole command | re-verified 2026-07-26 |
 | Sandbox suite | 7 attack classes blocked; docstring false-positive fixed; prod refuses in-process exec | sandbox trace |
 | Patch cycle | 20 fixes: 2 blockers, 3 security, 15 correctness/robustness | CHANGES.md |
 | Diagnosis regimes | 6 (well-behaved, zero-inflated, right-skew→log, negative-skew→**arcsinh**, outlier→head-tail, discrete→unique) | gate2 source |

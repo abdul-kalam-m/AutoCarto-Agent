@@ -24,6 +24,13 @@ The honest state of the system, derived entirely from the repository:
 
 **The single most important thing to understand:** this project's scientific contribution (the diagnostic→prescriptive gate pattern, Gate 2 + Gate 3b) is real, implemented, and reproducible. Everything around it — the LLM tier, five of seven gates, the orchestrator — is currently *architecture on paper*. The roadmap in §11 is ordered so that every phase keeps the system in a demonstrable state.
 
+> **⚠ Status update — 2026-07-26, read this before trusting the table above.** The table describes the state on the 2026-07-06 review date. Since then, Phase 0 of §11's roadmap has been executed (commits `86faa1a`..`8e619a2`); the table's cells for **Test suite** and **Packaging/infra** are now out of date:
+> - **Test suite:** no longer "None" — **67 tests** exist (`tests/`), covering gate behavior, retrieval, sandbox, figure-claim regression, and — the crown jewel — determinism (two demo runs byte-identical) and golden-parity against the committed traces. Run with `pytest`.
+> - **Packaging/infra:** no longer "no git repo, no pyproject.toml, no Dockerfile, no CI." A git repo now exists (tagged `poster-2026`), `pyproject.toml` installs the package (`pip install -e .`) with an `autocarto` console script, and `.github/workflows/ci.yml` is authored (Linux+Windows × py3.12/3.14). **Still true:** no Dockerfile exists anywhere, and — because no git remote is configured — the CI workflow has **never actually executed**; its correctness is verified only by running the equivalent commands locally (§9 TD-13).
+> - **Claim integrity:** the poster's GVF line is corrected (0.835/0.861, as this table already states) and is now baked into the regenerated figures and poster copy. "23% of proposals rejected" has been *replaced*, not merely flagged: `autocarto benchmark` produces a real, regenerable, ground-truth-scored number (95.2% strict decision accuracy, 20/21, with the one miss disclosed) — see [06_POSTER_COPY.md](06_POSTER_COPY.md) §5 Block B. "34 s end-to-end" remains unaddressed — still drop it, no benchmark has measured LLM-inclusive latency because no LLM tier exists yet.
+> - **Architecture implemented** and the 15–20% figure are unchanged — V1 was a packaging/testing/figures/benchmark pass, not new gate implementation. Do not read this update as "more gates exist now."
+> Full detail: §9's technical-debt register carries a per-item resolved/open status as of the same date; §1.3's run instructions are updated to the current package commands.
+
 ---
 
 ## 1. Repository orientation
@@ -78,13 +85,25 @@ CartoLLM/
 #   C:\Users\abdul\AppData\Local\Python\bin\python.exe   (Python 3.14.3)
 # ("python" on PATH is 3.12 without scipy — will fail.)
 
-python output/codes_patched/demo.py
-# → regenerates output/figures/gate2*, gate3b*, output/traces/*, logs/run.log
-# → ~1–3 s wall clock, fully offline, no API keys, no Docker required
+# V1 update (2026-07): the code is now an installable package. `pip install -e .`
+# once, then use the CLI below. The pre-V1 paths (output/codes_patched/demo.py,
+# output/figures/gen_results_panel.py invoked directly) still exist and still
+# work, but are frozen review artifacts — use the package for anything new.
 
-python output/figures/gen_results_panel.py
-# → regenerates the Atlanta 4-panel figure
-# ⚠ downloads TIGER tracts from tigerweb.geo.census.gov at run time (see §9, TD-7)
+pip install -e .
+autocarto demo                        # or: python -m autocarto.demo
+# → regenerates output/figures/gate2*, gate3b*, output/traces/*, logs/run.log
+# → fully offline, no API keys, no Docker required. The line the tool prints,
+#   "Total wall-clock: ... ms", is the deterministic core's own timer and has
+#   stayed under ~2.7 s across every run tested. That is NOT the same as total
+#   command latency: Python/NumPy/SciPy/Matplotlib interpreter startup adds a
+#   further 3–5 s on this machine, measured stopwatch-to-stopwatch. State the
+#   core-computation number, never an unqualified "the command takes <Xs".
+
+python scripts/gen_results_panel.py
+# → regenerates the Atlanta 4-panel figure from the PINNED snapshot in data/
+#   (TD-7 fixed: no live network call by default). Pass --live to re-query
+#   tigerweb.geo.census.gov instead.
 ```
 
 Verified during this review (2026-07-06): a fresh `demo.py` run in an isolated directory produced `gate2_classification_trace.json` and `gate3b_bivariate_trace.json` **byte-identical** to the committed ones; `hybrid_retrieval_trace.json` and `sandbox_trace.json` differed *only* in wall-clock timing fields. This is a strong, demonstrable reproducibility property — protect it with the determinism test in §12.4.
@@ -441,20 +460,32 @@ Gate 2 and Gate 3b already fit this shape with a thin adapter (`DiagnosticResult
 
 ## 9. Technical debt register (prioritized)
 
-| ID | Debt | Risk if ignored | Effort | Fix |
-|---|---|---|---|---|
-| TD-1 | No git repository | silent drift between the two code copies; unrecoverable mistakes | 30 min | `git init`, commit originals then patched, tag `poster-2026` |
-| TD-2 | Two diverging code copies | edits land in the dead copy | 1 h | promote `codes_patched` → `src/autocarto/`; freeze `Codes/` |
-| TD-3 | No tests | any refactor is blind; claims decay silently | 2–3 d | §12; port `demo.py` cases to pytest first |
-| TD-4 | ⚠️ claims C9/C10 + poster GVF | conference credibility; a reviewer *will* pull this thread | 0.5–2 d | fix poster numbers (0.835/0.861 verified); build P4 benchmark or excise "23%" |
-| TD-5 | No Dockerfile / gVisor never run | flagship security claim untestable | 1–2 d | Phase 5; CI smoke test with `runsc` |
-| TD-6 | Broken/contradictory environments | "works on one machine" — literally true today (§5) | 2 h | single `environment.yml`; document interpreter; CI installs it fresh |
-| TD-7 | Live TIGER dependency in results figure | irreproducible poster figure the week the API changes | 1 h | snapshot GeoJSON + checksum into `data/` |
-| TD-8 | Thresholds uncalibrated & scattered | "arbitrary constants" review criticism | 1 d | `config.py` + rationale table + sensitivity sweep (R-1) |
-| TD-9 | Stylesheet string-replace injection | corrupted generated code; style silently absent | 2 h | runner-side `plt.style.use` (§6.2-3) |
-| TD-10 | Stateful `iteration_count` | cross-variable contamination when `reset()` forgotten | 1 h | orchestrator owns iteration; make `evaluate` pure |
-| TD-11 | `gen_results_panel - Copy.py`, 3 abstract versions, stray PNGs (`architecture_boundary 3.png`, ` 4.png`) | confusion about what's authoritative | 30 min | delete/archive in Phase 0 commit |
-| TD-12 | `_geometry_to_bbox` shim + dict-fallback Qdrant filters | API ambiguity for new callers | 1 h | deprecate shim; type the filter layer |
+Status column added 2026-07-26 after discovering this table had gone stale relative to the completed V1 build — a direct instance of the "docs must match reality" principle this whole review insists on. Rows are kept, not deleted, so the register remains a readable history.
+
+| ID | Debt | Risk if ignored | Effort | Fix | Status |
+|---|---|---|---|---|---|
+| TD-1 | No git repository | silent drift between the two code copies; unrecoverable mistakes | 30 min | `git init`, commit originals then patched, tag `poster-2026` | ✅ **Resolved** — repo initialized, tagged |
+| TD-2 | Two diverging code copies | edits land in the dead copy | 1 h | promote `codes_patched` → `src/autocarto/`; freeze `Codes/` | ✅ **Resolved** |
+| TD-3 | No tests | any refactor is blind; claims decay silently | 2–3 d | §12; port `demo.py` cases to pytest first | ✅ **Resolved** — 67 tests, incl. golden-parity + determinism |
+| TD-4 | ⚠️ claims C9/C10 + poster GVF | conference credibility; a reviewer *will* pull this thread | 0.5–2 d | fix poster numbers (0.835/0.861 verified); build P4 benchmark or excise "23%" | ✅ **Resolved for the poster** — GVF corrected, `autocarto benchmark` gives a defensible 95.2%/20/21 number (Poster Copy §5 Block B). C10's "100% of escapes blocked" wording still needs softening per Guide Q10 if reused verbatim. |
+| TD-5 | No Dockerfile / gVisor never run | flagship security claim untestable | 1–2 d | Phase 5; CI smoke test with `runsc` | ❌ Open — confirmed again 2026-07-26, zero Dockerfile/gVisor artifacts anywhere |
+| TD-6 | Broken/contradictory environments | "works on one machine" — literally true today (§5) | 2 h | single `environment.yml`; document interpreter; CI installs it fresh | ❌ **Still open — do not mark resolved.** `environment.yml` exists at root but pins python=3.11.8/geopandas=0.14.4/libpysal=4.9.2, none of which have ever been installed or tested; the actual verified stack is 3.14.3/1.1.3/4.14.1 (confirmed 2026-07-26). `pyproject.toml`'s loose `>=` bounds are fine for packaging but don't substitute for a reconciled lock file. |
+| TD-7 | Live TIGER dependency in results figure | irreproducible poster figure the week the API changes | 1 h | snapshot GeoJSON + checksum into `data/` | ✅ **Resolved** — `data/atlanta_tracts_fulton_dekalb.geojson` + `MANIFEST.md`, hash re-verified 2026-07-26, script defaults to it |
+| TD-8 | Thresholds uncalibrated & scattered | "arbitrary constants" review criticism | 1 d | `config.py` + rationale table + sensitivity sweep (R-1) | ❌ Open |
+| TD-9 | Stylesheet string-replace injection | corrupted generated code; style silently absent | 2 h | runner-side `plt.style.use` (§6.2-3) | ❌ Open |
+| TD-10 | Stateful `iteration_count` | cross-variable contamination when `reset()` forgotten | 1 h | orchestrator owns iteration; make `evaluate` pure | ❌ Open (no orchestrator exists yet — V2 scope) |
+| TD-11 | `gen_results_panel - Copy.py`, 3 abstract versions, stray PNGs (`architecture_boundary 3.png`, ` 4.png`) | confusion about what's authoritative | 30 min | delete/archive in Phase 0 commit | ✅ **Resolved** — archived to `docs/history/` |
+| TD-12 | `_geometry_to_bbox` shim + dict-fallback Qdrant filters | API ambiguity for new callers | 1 h | deprecate shim; type the filter layer | ❌ Open |
+
+**New, found during this pass (2026-07-26) — add to the register:**
+
+| ID | Debt | Risk if ignored | Effort | Fix | Status |
+|---|---|---|---|---|---|
+| TD-13 | CI workflow authored but never run (no git remote configured) | "CI passes" would be an unverified claim if stated to anyone external | 15 min | push to a remote, confirm one real green Actions run | ❌ Open |
+| TD-14 | Demo/benchmark timing claims ("<3 s") did not distinguish the tool's internal timer (~1–2.7 s, confirmed) from total command latency including Python/library interpreter startup (3.5–6.1 s, measured 2026-07-26) | a live-demo audience member timing the whole command with a stopwatch would see the claim fail | 30 min (wording only; no code defect) | say "core validation <3 s" everywhere, never an unqualified command-latency number — fixed in Poster Copy §5/§9/§10 and Presentation Guide §6.1/§7/cheat-sheet this pass | ✅ **Resolved** (docs only) |
+| TD-15 | Stray `ungated_vs_gated - Copy.pdf` in `output/figures/` (byte-identical duplicate, evidently a manual Explorer copy made during review) | repo clutter; a future contributor may not know which file is canonical | 5 min | delete the `- Copy` file (not done automatically — confirm with the repo owner first, since it wasn't created by this tooling) | ❌ Open, flagged not fixed |
+| TD-16 | `architecture_boundary.png` carried a hardcoded banner ("23% initial proposal rejection rate · 100% sandbox escape prevention") that (a) repeated exactly the retired C9/C10-style claims TD-4 already addressed elsewhere and (b) overlapped and obscured the "TIER 2" zone title — found only because this pass re-rendered and visually inspected every figure, not just grepped document text | a completely different, unaudited image was making the same false claims this whole review exists to catch; would have gone to print unnoticed | 15 min | banner removed entirely in `scripts/gen_architecture_diagram.py` (2026-07-26) | ✅ **Resolved** |
+| TD-17 | Minor label crowding in the same diagram: "Authority Boundary / LLM never receives raw data values" text sits close to "Mandatory corrective prescriptions" near G1 — legible but tight, not a false-claim issue | cosmetic only | 15–30 min | nudge one label's y-offset in `gen_architecture_diagram.py` | ❌ Open, flagged not fixed (out of scope for this pass — no incorrect claim involved) |
 
 ---
 
@@ -490,13 +521,15 @@ flowchart LR
     P4 -.-> J["Journal-ready<br/>(defensible numbers)"]
 ```
 
-### Phase 0 — Repo hygiene (do immediately; ~1 day)
-- **P0-T1** `git init`; commit `Codes/` as `original-submission`, then `output/` state, tag `poster-2026`. *(TD-1)*
-- **P0-T2** Create `src/autocarto/` package from `codes_patched` (layout §8.1), `pyproject.toml` with pinned deps from `environment_fixed.yml`; `pip install -e .` works. *(TD-2, TD-6, C11)*
-- **P0-T3** Snapshot Atlanta TIGER GeoJSON → `data/`, SHA-256 in `data/MANIFEST.md`; point `gen_results_panel.py` at the snapshot with `--live` opt-out. *(TD-7)*
-- **P0-T4** Delete `gen_results_panel - Copy.py`, stray PNG variants; move old abstracts to `docs/history/`. *(TD-11)*
-- **P0-T5** GitHub Actions: Linux + Windows, `pip install -e . && python -m autocarto.demo` (the ported harness) green on both. *(TD-8 prep)*
-- **Acceptance:** fresh clone → `pip install -e .` → `autocarto demo` reproduces byte-identical statistical traces on Linux CI.
+### Phase 0 — Repo hygiene (do immediately; ~1 day) — ✅ DONE (see §0 note below)
+- **P0-T1** ✅ `git init`; commit `Codes/` as originals, then `output/` state, tag `poster-2026`. *(TD-1 resolved)*
+- **P0-T2** ✅ `src/autocarto/` package created from `codes_patched` (layout §8.1), `pyproject.toml` (loose `>=` bounds, not exact pins — see TD-6 note); `pip install -e .` works, `autocarto` console script live. *(TD-2 resolved; TD-6 partially — see below)*
+- **P0-T3** ✅ Atlanta TIGER GeoJSON snapshotted to `data/`, SHA-256 in `data/MANIFEST.md`; `gen_results_panel.py` reads the snapshot by default, `--live` re-queries. *(TD-7 resolved)*
+- **P0-T4** ✅ `gen_results_panel - Copy.py`, stray PNG variants, and old abstract drafts moved to `docs/history/`. *(TD-11 resolved)*
+- **P0-T5** 🟡 `.github/workflows/ci.yml` authored (Linux+Windows × py3.12/3.14, `pip install -e .[dev]`, `pytest`, demo smoke run) and the equivalent commands verified green **locally** — but the repo has no remote configured, so **the workflow has never actually executed on GitHub Actions.** Push to a remote and confirm a real green run before trusting "CI passes" as a claim to anyone external.
+- **Acceptance (met locally, not yet on CI):** fresh `pip install -e .` → `autocarto demo` run twice → statistical traces byte-identical (Manual §12.4, re-confirmed 2026-07-26). The Linux-CI half of this acceptance criterion is unverified until P0-T5's remote gap closes.
+
+**Note (2026-07-26):** this phase was fully executed during the V1 build session (commits `86faa1a`..`8e619a2`). §9's debt-register rows for TD-1/2/3/7/11 below are annotated resolved rather than deleted, so the register stays a readable history rather than silently losing the record of what TD-4 (partially resolved: poster GVF fixed, "23%" replaced by the ground-truth benchmark) and TD-3 (67 tests now exist) also closed. TD-5, TD-6 (fully), TD-8, TD-9, TD-10, TD-12 remain genuinely open — do not mark those done without shipping the actual fix.
 
 ### Phase 1 — Complete the gate suite (~1 week)
 - **P1-T1** `contracts.py`: `GateResult`, `Prescription`; adapters for G2/G3b (§8.2). Tests assert `REJECT ⇒ prescription is not None` for every gate.
