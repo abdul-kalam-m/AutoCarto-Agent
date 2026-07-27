@@ -12,7 +12,7 @@
         "stderr_preview": "",
         "has_figure": false,
         "error_type": null,
-        "execution_time_ms": 7.133
+        "execution_time_ms": 12.087
       },
       "sanitize_match": true,
       "exec_match": true
@@ -92,7 +92,7 @@
         "stderr_preview": "",
         "has_figure": false,
         "error_type": null,
-        "execution_time_ms": 8.308
+        "execution_time_ms": 5.747
       },
       "sanitize_match": true,
       "exec_match": true

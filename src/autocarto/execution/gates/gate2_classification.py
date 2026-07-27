@@ -137,6 +137,25 @@ def _dedupe_breaks(breaks: List[float]) -> List[float]:
     return deduped
 
 
+def _fmt_breaks(breaks: List[float], sig_figs: int = 6) -> str:
+    """Render a break list for the natural-language `instruction` text only.
+
+    Rounds to a fixed number of significant figures rather than embedding
+    Python's full-precision float repr. jenkspy/numpy can produce results
+    that agree to ~14 significant digits but differ in the last one or two
+    across platforms/BLAS builds (harmless, expected float drift) -- at
+    full repr precision that drift shows up as a visible text diff in the
+    golden-trace comparison, even though `assert_json_equivalent` already
+    tolerates it for the numeric `breaks` field itself.
+
+    Do NOT use this for `code_snippet`: test_mandated_code_snippet_is_
+    executable_shape asserts the snippet contains prescribed_breaks'
+    exact repr, since the snippet is meant to be a faithful, standalone-
+    executable reproduction of the real breaks, not just illustrative text.
+    """
+    return "[" + ", ".join(f"{b:.{sig_figs}g}" for b in breaks) + "]"
+
+
 class ClassificationDiagnosticEngine:
     """Characterizes distribution and prescribes classification remedies.
 
@@ -333,7 +352,7 @@ class ClassificationDiagnosticEngine:
                 f"Data is zero-inflated ({zero_pct:.1f}% zeros). "
                 f"Mandate explicit break at 0, followed by Fisher-Jenks "
                 f"classification for non-zero values. "
-                f"DO NOT propose alternative methods. Use these exact breaks: {breaks}"
+                f"DO NOT propose alternative methods. Use these exact breaks: {_fmt_breaks(breaks)}"
             ),
             "code_snippet": f"""
 # MANDATED CLASSIFICATION - DO NOT MODIFY
@@ -379,7 +398,7 @@ classified = np.digitize(values, bins=breaks, right=True)
                     f"Log transform is INVALID for negative inputs. "
                     f"Mandate Inverse Hyperbolic Sine (arcsinh) transform, which handles "
                     f"negative, zero, and positive values symmetrically. "
-                    f"Use these exact back-transformed breaks: {breaks_original}"
+                    f"Use these exact back-transformed breaks: {_fmt_breaks(breaks_original)}"
                 ),
                 "code_snippet": f"""
 # MANDATED CLASSIFICATION - DO NOT MODIFY
@@ -406,7 +425,7 @@ classified = np.digitize(transformed, bins=breaks_transformed, right=True)
                 "instruction": (
                     f"Data is heavily right-skewed (g1={float(scipy_stats.skew(values)):.2f}). "
                     f"Apply log1p transform before classification. "
-                    f"Use these exact back-transformed breaks: {breaks_original}"
+                    f"Use these exact back-transformed breaks: {_fmt_breaks(breaks_original)}"
                 ),
                 "code_snippet": f"""
 # MANDATED CLASSIFICATION - DO NOT MODIFY
@@ -427,7 +446,7 @@ classified = np.digitize(transformed, bins=breaks_transformed, right=True)
             "instruction": (
                 f"Distribution has {outlier_pct:.1f}% outliers. "
                 f"Head-tail breaks are designed for heavy-tailed data. "
-                f"Use these breaks: {breaks}"
+                f"Use these breaks: {_fmt_breaks(breaks)}"
             ),
             "code_snippet": f"""
 # MANDATED CLASSIFICATION - DO NOT MODIFY

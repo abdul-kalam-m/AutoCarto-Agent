@@ -12,10 +12,10 @@
           "atl-noise",
           "cdc-asthma"
         ],
-        "retrieval_time_ms": 2529.15,
-        "spatial_filter_time_ms": 2444.737,
-        "exact_refine_time_ms": 83.347,
-        "semantic_search_time_ms": 1.009
+        "retrieval_time_ms": 1930.609,
+        "spatial_filter_time_ms": 1835.841,
+        "exact_refine_time_ms": 93.161,
+        "semantic_search_time_ms": 1.534
       },
       "items_detail": [
         {
@@ -46,10 +46,10 @@
           "nyc-vision-zero",
           "cdc-asthma"
         ],
-        "retrieval_time_ms": 0.463,
-        "spatial_filter_time_ms": 0.09,
-        "exact_refine_time_ms": 0.079,
-        "semantic_search_time_ms": 0.273
+        "retrieval_time_ms": 0.68,
+        "spatial_filter_time_ms": 0.156,
+        "exact_refine_time_ms": 0.118,
+        "semantic_search_time_ms": 0.381
       },
       "items_detail": [
         {
@@ -75,10 +75,10 @@
           "aleutian-seabird-east",
           "aleutian-seabird-west"
         ],
-        "retrieval_time_ms": 2.603,
-        "spatial_filter_time_ms": 0.065,
-        "exact_refine_time_ms": 1.304,
-        "semantic_search_time_ms": 1.187
+        "retrieval_time_ms": 0.614,
+        "spatial_filter_time_ms": 0.081,
+        "exact_refine_time_ms": 0.064,
+        "semantic_search_time_ms": 0.443
       },
       "items_detail": [
         {

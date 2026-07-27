@@ -46,7 +46,7 @@
         20.613778237876605,
         68.8841102979278
       ],
-      "instruction": "Data is zero-inflated (49.8% zeros). Mandate explicit break at 0, followed by Fisher-Jenks classification for non-zero values. DO NOT propose alternative methods. Use these exact breaks: [0.0, 7.860857909728592, 20.613778237876605, 68.8841102979278]",
+      "instruction": "Data is zero-inflated (49.8% zeros). Mandate explicit break at 0, followed by Fisher-Jenks classification for non-zero values. DO NOT propose alternative methods. Use these exact breaks: [0, 7.86086, 20.6138, 68.8841]",
       "profile": {
         "n": 243,
         "n_unique": 123,
@@ -85,7 +85,7 @@
         73283.77239275721,
         469392.011222335
       ],
-      "instruction": "Data is heavily right-skewed (g1=3.65). Apply log1p transform before classification. Use these exact back-transformed breaks: [1014.6578994790899, 3989.88895041789, 10543.109929814955, 24806.023487159608, 73283.77239275721, 469392.011222335]",
+      "instruction": "Data is heavily right-skewed (g1=3.65). Apply log1p transform before classification. Use these exact back-transformed breaks: [1014.66, 3989.89, 10543.1, 24806, 73283.8, 469392]",
       "profile": {
         "n": 243,
         "n_unique": 243,
@@ -165,7 +165,7 @@
         3.047254019650646,
         9.85260536345389
       ],
-      "instruction": "Data contains negative values (min=-0.80) and is right-skewed (g1=1.61). Log transform is INVALID for negative inputs. Mandate Inverse Hyperbolic Sine (arcsinh) transform, which handles negative, zero, and positive values symmetrically. Use these exact back-transformed breaks: [-0.7985257496346775, -0.23147106046335994, 0.3673575750932185, 1.3262872978134923, 3.047254019650646, 9.85260536345389]",
+      "instruction": "Data contains negative values (min=-0.80) and is right-skewed (g1=1.61). Log transform is INVALID for negative inputs. Mandate Inverse Hyperbolic Sine (arcsinh) transform, which handles negative, zero, and positive values symmetrically. Use these exact back-transformed breaks: [-0.798526, -0.231471, 0.367358, 1.32629, 3.04725, 9.85261]",
       "profile": {
         "n": 243,
         "n_unique": 243,
