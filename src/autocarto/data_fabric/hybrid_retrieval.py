@@ -10,11 +10,19 @@ retrieved datasets mathematically intersect the target geometry.
 """
 
 from dataclasses import dataclass, field
-from typing import List, Optional, Dict, Any, Callable
+from typing import List, Optional, Dict, Any, Callable, Union
 import hashlib
 import json
 import time
 import numpy as np
+
+# PATCH (TD-12): a real qdrant_client.models.Filter when the package is
+# installed, or its plain-dict wire-format equivalent when it isn't
+# (MockQdrantClient, or any minimal test double, accepts either). Named
+# explicitly so _spatial_filter/_semantic_search's return types document
+# the union instead of leaving callers to guess which shape a given
+# client actually needs.
+QdrantFilter = Union[Any, Dict[str, Any]]
 
 
 @dataclass
@@ -98,6 +106,45 @@ def _hash_embedding(text: str, dim: int = 1536, seed: int = 0) -> List[float]:
     if norm == 0:
         return [0.0] * dim
     return (vec / norm).tolist()
+
+
+# PATCH (TD-12): filter construction factored out of _spatial_filter /
+# _semantic_search, which previously duplicated the identical
+# try-real-Filter-except-ImportError-use-dict pattern inline. Each helper
+# is now a single, named, typed home for one filter shape instead of two
+# copies of the same try/except.
+
+def _bbox_overlap_filter(min_lon: float, max_lon: float, min_lat: float, max_lat: float) -> QdrantFilter:
+    """Qdrant filter for bbox-overlap intersection (not containment):
+    A intersects B iff A.min <= B.max and A.max >= B.min on both axes."""
+    try:
+        from qdrant_client.models import Filter, FieldCondition, Range
+        return Filter(
+            must=[
+                FieldCondition(key="bbox.min_lon", range=Range(lte=max_lon)),
+                FieldCondition(key="bbox.max_lon", range=Range(gte=min_lon)),
+                FieldCondition(key="bbox.min_lat", range=Range(lte=max_lat)),
+                FieldCondition(key="bbox.max_lat", range=Range(gte=min_lat)),
+            ]
+        )
+    except ImportError:
+        return {
+            "must": [
+                {"key": "bbox.min_lon", "range": {"lte": max_lon}},
+                {"key": "bbox.max_lon", "range": {"gte": min_lon}},
+                {"key": "bbox.min_lat", "range": {"lte": max_lat}},
+                {"key": "bbox.max_lat", "range": {"gte": min_lat}},
+            ]
+        }
+
+
+def _has_id_filter(allowed_ids: List[str]) -> QdrantFilter:
+    """Qdrant filter restricting results to a known point-ID set."""
+    try:
+        from qdrant_client.models import Filter, HasIdCondition
+        return Filter(must=[HasIdCondition(has_id=allowed_ids)])
+    except ImportError:
+        return {"must": [{"has_id": allowed_ids}]}
 
 
 class HybridRetrieval:
@@ -307,11 +354,6 @@ class HybridRetrieval:
 
         return [[min(lons), min_lat, max(lons), max_lat]]
 
-    # Keep old name as a thin wrapper for callers that call it directly in tests.
-    def _geometry_to_bbox(self, geometry: Dict[str, Any]) -> List[float]:
-        bboxes = self._extract_bboxes(geometry)
-        return bboxes[0]  # returns first shard only; use _extract_bboxes for antimeridian
-
     def _spatial_filter(self, bbox: List[float]) -> List[str]:
         """Stage 1: Deterministic bounding-box intersection for a single bbox.
 
@@ -321,30 +363,7 @@ class HybridRetrieval:
         and unioning the results in ``retrieve()``.
         """
         min_lon, min_lat, max_lon, max_lat = bbox
-
-        # Build Qdrant filter: BBOX intersection
-        # A intersects B if: A.min_lon <= B.max_lon AND A.max_lon >= B.min_lon
-        #                AND A.min_lat <= B.max_lat AND A.max_lat >= B.min_lat
-        # PATCH: import deferred so the module is importable without qdrant-client.
-        try:
-            from qdrant_client.models import Filter, FieldCondition, Range
-            filter_conditions = Filter(
-                must=[
-                    FieldCondition(key="bbox.min_lon", range=Range(lte=max_lon)),
-                    FieldCondition(key="bbox.max_lon", range=Range(gte=min_lon)),
-                    FieldCondition(key="bbox.min_lat", range=Range(lte=max_lat)),
-                    FieldCondition(key="bbox.max_lat", range=Range(gte=min_lat)),
-                ]
-            )
-        except ImportError:
-            filter_conditions = {
-                "must": [
-                    {"key": "bbox.min_lon", "range": {"lte": max_lon}},
-                    {"key": "bbox.max_lon", "range": {"gte": min_lon}},
-                    {"key": "bbox.min_lat", "range": {"lte": max_lat}},
-                    {"key": "bbox.max_lat", "range": {"gte": min_lat}},
-                ]
-            }
+        filter_conditions = _bbox_overlap_filter(min_lon, max_lon, min_lat, max_lat)
 
         # Scroll through all matching points (no vector, just payload filter).
         # Hard cap at 10 000 pages to prevent infinite loops on misbehaving clients.
@@ -386,12 +405,7 @@ class HybridRetrieval:
         ``MockQdrantClient`` (and any genuinely old client) keeps working
         unchanged.
         """
-        try:
-            from qdrant_client.models import Filter, HasIdCondition
-            query_filter = Filter(must=[HasIdCondition(has_id=allowed_ids)])
-        except ImportError:
-            query_filter = {"must": [{"has_id": allowed_ids}]}
-
+        query_filter = _has_id_filter(allowed_ids)
         query_vector = self._embed(query_text)
 
         if hasattr(self.client, "query_points"):

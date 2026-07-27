@@ -1,33 +1,45 @@
+# AutoCarto-Agent conda environment.
+#
+# TD-6 (2026-07-27): this file previously pinned python=3.11.8 and a stack
+# that had never actually been installed or tested — the real, verified
+# interpreter for this whole project is the one at
+#   C:\Users\abdul\AppData\Local\Python\bin\python.exe   (Python 3.14.3)
+# ("python" on PATH resolves to a 3.12 install missing scipy and will not
+# work). Every version below is what `pip show` reported as actually
+# installed in that environment as of 2026-07-27, not an aspirational pin.
+#
+# Also removed: cartopy, rasterio, xarray, dask, psycopg2, openai,
+# colour-science, visvalingamwyatt, contextily. None of these are imported
+# anywhere in src/autocarto/ (verified: `grep -rl "import X" src/autocarto/`
+# returns nothing for each) — they were speculative pins for the Compute
+# Router / real-embedder / basemap architecture described in the Blueprint
+# (C6, still unbuilt) but never wired in. Pinning fake-verified version
+# numbers for unused packages is the exact untruthfulness this fix exists
+# to remove; add them back with real tested pins if/when that work starts.
 name: autocarto-agent
 channels:
   - conda-forge
   - defaults
 dependencies:
-  - python=3.11.8
-  - pip=24.0
-  - numpy=1.26.4
-  - scipy=1.12.0
-  - pandas=2.2.1
-  - geopandas=0.14.4
-  - shapely=2.0.3
-  - pyproj=3.6.1
-  - pyogrio=0.7.2
-  - matplotlib=3.8.4
-  - contextily=1.6.2
-  - cartopy=0.22.0
-  - rasterio=1.3.10
-  - xarray=2024.2.0
-  - dask=2024.2.1
-  - psycopg2=2.9.9
-  - libpysal=4.9.2
-  - esda=2.5.1
-  - jenkspy=0.3.2
+  - python=3.14.3
+  - pip=25.3
+  - numpy=2.4.2
+  - scipy=1.17.1
+  - pandas=3.0.1
+  - matplotlib=3.10.8
+  - jenkspy=0.4.1
+  - pyproj=3.7.2
+  - colorspacious=1.1.2
+  # --- optional 'geo' extra (geopandas, libpysal, gates 1/3a/4 tests, real_data.py) ---
+  - geopandas=1.1.3
+  - shapely=2.1.2
+  - pyogrio=0.12.1
+  - libpysal=4.14.1
+  - esda=2.9.0  # not a runtime dep of gate3a (which hand-rolls Moran's I); used only
+                # to cross-validate it in tests/gates/test_gate3a.py
+  - pytest=9.1.1
   - pip:
-      - qdrant-client==1.8.1
-      - openai==1.14.3
-      - colour-science==0.4.6
-      - colorspacious==1.1.2
-      # PATCH: the original "visvalingam-whyatt==0.2.1" does not exist on PyPI;
-      # the actual package is "visvalingamwyatt" (no hyphen) and 0.2.0 is the
-      # current release. Pinned to keep the lock reproducible.
-      - visvalingamwyatt==0.2.0
+      # --- optional 'retrieval' extra ---
+      - qdrant-client==1.18.0
+      # --- optional 'embeddings' extra ---
+      - sentence-transformers==5.6.1
