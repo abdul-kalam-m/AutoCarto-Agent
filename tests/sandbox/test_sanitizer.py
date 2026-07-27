@@ -88,3 +88,20 @@ def test_scientific_stack_still_whitelisted():
     for mod in ("numpy", "pandas", "geopandas", "matplotlib.pyplot", "scipy.stats"):
         is_safe, _msg, violations = CodeSanitizer.sanitize(f"import {mod}\n")
         assert is_safe, f"{mod} should be allowed: {violations}"
+
+
+# ── Style-override blocking: TD-9's "code never controls style" contract ────
+# Not a security boundary -- these don't enable any escape -- but runner-side
+# style injection (sitecustomize.py / _resolve_runtime_style) is a plain
+# rcParams mutation with nothing else preventing code from resetting it
+# right back afterward.
+
+@pytest.mark.parametrize("code", [
+    "import matplotlib.pyplot as plt\nplt.style.use('default')\n",
+    "import matplotlib\nmatplotlib.style.use('classic')\n",
+    "import matplotlib.pyplot as plt\nplt.rcdefaults()\n",
+    "from matplotlib import rcdefaults\nrcdefaults()\n",
+], ids=["plt.style.use", "matplotlib.style.use", "plt.rcdefaults", "bare rcdefaults"])
+def test_style_override_calls_blocked(code):
+    is_safe, _msg, violations = CodeSanitizer.sanitize(code)
+    assert is_safe is False, f"expected this to be blocked: {code!r}"

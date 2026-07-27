@@ -77,6 +77,15 @@ BLOCKED_PATTERNS: List[re.Pattern] = [
     re.compile(r"\brequests\."),
     re.compile(r"\burllib\b"),
     re.compile(r"\bbase64\.b64decode\b"),
+    # TD-9's contract is "the code never controls style" -- runner-side
+    # injection (_resolve_runtime_style / sitecustomize.py) applies the
+    # house style before this code runs, but that's just a plain rcParams
+    # mutation with nothing locking it: code that calls style.use(...)
+    # again or rcdefaults() afterward silently resets it. Not a security
+    # boundary (no escape possible either way), but blocking it here
+    # keeps the contract actually true rather than true-by-convention.
+    re.compile(r"\.style\.use\s*\("),
+    re.compile(r"\brcdefaults\s*\("),
 ]
 
 # PATCH: AST-level checks for writeable open() calls. Regex on the source is

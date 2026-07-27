@@ -75,6 +75,22 @@ RUN rm -f /bin/sh /bin/bash /bin/dash /usr/bin/sh /usr/bin/bash /usr/bin/dash
 # the one writable location that actually exists at runtime (--tmpfs /tmp).
 ENV MPLCONFIGDIR=/tmp/matplotlib-config
 
+# Force single-threaded BLAS/OpenMP. Two independent reasons, both already
+# real findings in this project rather than hypothetical: (1) OpenBLAS's
+# thread-count autodetection segfaulted on a constrained-CPU CI runner
+# earlier in this project (see constraints-ci.txt) -- container CPU
+# visibility is exactly this kind of constrained environment, especially
+# on many-core host hardware where a container has no --cpus limit set;
+# (2) --pids-limit=64 (_execute_docker) caps total processes/threads for
+# the container, and an unconstrained BLAS thread pool scaling with host
+# core count could plausibly approach that limit on high-core hardware,
+# starving the pool a legitimate render actually needs. Each rendered map
+# here is one small, short-lived script -- there is no legitimate
+# multi-threaded workload in this container to lose performance from.
+ENV OPENBLAS_NUM_THREADS=1
+ENV OMP_NUM_THREADS=1
+ENV MKL_NUM_THREADS=1
+
 USER sandbox
 WORKDIR /workspace
 
