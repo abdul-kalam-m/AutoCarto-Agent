@@ -8,6 +8,13 @@ dist/
 .venv/
 venv/
 
+# Secrets — NEVER commit these
+.env
+.env.*
+!.env.example
+*.key
+secrets/
+
 # Local tooling / editor
 .claude/
 .vscode/
