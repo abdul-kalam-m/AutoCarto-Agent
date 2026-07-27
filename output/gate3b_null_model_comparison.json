@@ -1,0 +1,139 @@
+{
+  "study": "gate3b-null-model-comparison",
+  "version": 1,
+  "permutations": 999,
+  "summary": {
+    "n_scenarios": 9,
+    "false_positives_at_alpha_0.05": {
+      "free_permutation": 2,
+      "toroidal_shift": 1,
+      "improvement": 1
+    },
+    "false_negatives_at_alpha_0.05": {
+      "free_permutation": 0,
+      "toroidal_shift": 1,
+      "regression": 1
+    },
+    "mean_p_value_inflation_on_independent_regime": 18.97,
+    "note": "The decision matrix (APPROVE/WARN/REJECT) is NOT changed by this comparison -- it currently depends only on |I_xy|/|rho| magnitude, never on the p-value, by original design. This study answers a narrower question: does the null model's significance claim become more honest, without weakening real-signal detection. Wiring significance into the decision matrix is a separate, not-yet-made design choice, flagged here rather than silently applied."
+  },
+  "scenarios": [
+    {
+      "regime": "strong_coupling",
+      "seed": 21,
+      "bivariate_morans_i": 0.5753,
+      "spearman_rho": 0.9691,
+      "free_permutation_p": 0.001,
+      "toroidal_shift_p": 0.004,
+      "p_ratio_toroidal_over_free": 4.0,
+      "decision_unchanged": "APPROVE",
+      "truly_related": true,
+      "free_perm_significant_at_05": true,
+      "toroidal_significant_at_05": true
+    },
+    {
+      "regime": "strong_coupling",
+      "seed": 22,
+      "bivariate_morans_i": 0.4129,
+      "spearman_rho": 0.934,
+      "free_permutation_p": 0.001,
+      "toroidal_shift_p": 0.004,
+      "p_ratio_toroidal_over_free": 4.0,
+      "decision_unchanged": "APPROVE",
+      "truly_related": true,
+      "free_perm_significant_at_05": true,
+      "toroidal_significant_at_05": true
+    },
+    {
+      "regime": "strong_coupling",
+      "seed": 23,
+      "bivariate_morans_i": 0.5544,
+      "spearman_rho": 0.9733,
+      "free_permutation_p": 0.001,
+      "toroidal_shift_p": 0.004,
+      "p_ratio_toroidal_over_free": 4.0,
+      "decision_unchanged": "APPROVE",
+      "truly_related": true,
+      "free_perm_significant_at_05": true,
+      "toroidal_significant_at_05": true
+    },
+    {
+      "regime": "weak_coupling",
+      "seed": 21,
+      "bivariate_morans_i": 0.1993,
+      "spearman_rho": 0.3158,
+      "free_permutation_p": 0.001,
+      "toroidal_shift_p": 0.007,
+      "p_ratio_toroidal_over_free": 7.0,
+      "decision_unchanged": "APPROVE",
+      "truly_related": true,
+      "free_perm_significant_at_05": true,
+      "toroidal_significant_at_05": true
+    },
+    {
+      "regime": "weak_coupling",
+      "seed": 22,
+      "bivariate_morans_i": 0.0798,
+      "spearman_rho": 0.1667,
+      "free_permutation_p": 0.044,
+      "toroidal_shift_p": 0.251,
+      "p_ratio_toroidal_over_free": 5.7,
+      "decision_unchanged": "REJECT",
+      "truly_related": true,
+      "free_perm_significant_at_05": true,
+      "toroidal_significant_at_05": false
+    },
+    {
+      "regime": "weak_coupling",
+      "seed": 23,
+      "bivariate_morans_i": 0.2389,
+      "spearman_rho": 0.3939,
+      "free_permutation_p": 0.001,
+      "toroidal_shift_p": 0.004,
+      "p_ratio_toroidal_over_free": 4.0,
+      "decision_unchanged": "APPROVE",
+      "truly_related": true,
+      "free_perm_significant_at_05": true,
+      "toroidal_significant_at_05": true
+    },
+    {
+      "regime": "independent",
+      "seed": 21,
+      "bivariate_morans_i": 0.0925,
+      "spearman_rho": 0.0789,
+      "free_permutation_p": 0.041,
+      "toroidal_shift_p": 0.399,
+      "p_ratio_toroidal_over_free": 9.73,
+      "decision_unchanged": "REJECT",
+      "truly_related": false,
+      "free_perm_significant_at_05": true,
+      "toroidal_significant_at_05": false
+    },
+    {
+      "regime": "independent",
+      "seed": 22,
+      "bivariate_morans_i": 0.0124,
+      "spearman_rho": -0.0146,
+      "free_permutation_p": 0.749,
+      "toroidal_shift_p": 0.886,
+      "p_ratio_toroidal_over_free": 1.18,
+      "decision_unchanged": "REJECT",
+      "truly_related": false,
+      "free_perm_significant_at_05": false,
+      "toroidal_significant_at_05": false
+    },
+    {
+      "regime": "independent",
+      "seed": 23,
+      "bivariate_morans_i": 0.1965,
+      "spearman_rho": 0.2398,
+      "free_permutation_p": 0.001,
+      "toroidal_shift_p": 0.046,
+      "p_ratio_toroidal_over_free": 46.0,
+      "decision_unchanged": "APPROVE",
+      "truly_related": false,
+      "free_perm_significant_at_05": true,
+      "toroidal_significant_at_05": true
+    }
+  ]
+}

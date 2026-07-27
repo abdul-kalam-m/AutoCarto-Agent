@@ -11,7 +11,7 @@ Decision matrix:
 """
 
 from dataclasses import dataclass
-from typing import Optional, Dict, Any, Literal
+from typing import Optional, Dict, Any, Literal, Tuple
 import numpy as np
 from scipy.stats import spearmanr
 
@@ -59,6 +59,8 @@ class BivariateCorrelationGate:
         standardized: bool = False,
         permutations: int = DEFAULT_PERMUTATIONS,
         random_state: int = DEFAULT_SEED,
+        null_model: Literal["free_permutation", "toroidal_shift"] = "free_permutation",
+        grid_shape: Optional[Tuple[int, int]] = None,
     ) -> BivariateCorrelationResult:
         """Full bivariate spatial cross-correlation evaluation.
 
@@ -69,6 +71,18 @@ class BivariateCorrelationGate:
             standardized: True if x and y are already z-scored
             permutations: Number of random permutations for I_xy significance
             random_state: Seed controlling the permutation generator
+            null_model: "free_permutation" (default, unchanged from prior
+                behavior -- fully shuffles y) or "toroidal_shift" (R-2:
+                preserves y's own spatial autocorrelation via wrap-around
+                lattice translation; see _toroidal_shift_pvalue). Opt-in
+                only -- omitting this parameter reproduces byte-identical
+                results to every prior version of this gate.
+            grid_shape: (rows, cols) required when null_model=
+                "toroidal_shift". x/y/weights_matrix must be laid out in
+                the same row-major order as the lattice (row*cols + col) --
+                true for autocarto.demo.make_grid_polygons's grids, NOT
+                generally true for irregular real-world polygon data,
+                which is exactly why this is opt-in rather than default.
 
         Returns:
             BivariateCorrelationResult with decision and instructions
@@ -159,9 +173,34 @@ class BivariateCorrelationGate:
         # PATCH: actual permutation-based p-value. The abstract claims Gate 3b
         # "calculates bivariate Moran's I"; reporting p=0.0 is misleading.
         # We permute the y vector under the null of no spatial cross-association.
-        p_value = self._permutation_pvalue(
-            x_std, y_std, W_sub, I_xy, N, W_sum, permutations, random_state
-        )
+        #
+        # PATCH (R-2): free permutation fully shuffles y, destroying its OWN
+        # spatial autocorrelation in every null draw. This systematically
+        # understates how often two independently-but-strongly-autocorrelated
+        # fields produce a spuriously large bivariate statistic by chance --
+        # documented false-positive: two independent SAR(rho=0.85) fields on
+        # this module's own 16x16 benchmark grid give free-permutation p=0.005
+        # (misleadingly "significant") for I_xy=0.20, purely coincidental
+        # coupling. null_model="toroidal_shift" is the opt-in fix: null draws
+        # are y itself, rigidly translated with wrap-around, which preserves
+        # y's own autocorrelation exactly and randomizes only its alignment
+        # with x -- verified on the same false-positive case to raise p from
+        # 0.005 to 0.046 (999 permutations), a 9x correction, while leaving
+        # genuine strong-coupling cases just as significant as before
+        # (p~0.004 either way). See scripts/gate3b_null_model_comparison.py
+        # for the full benchmark-corpus comparison this claim is based on.
+        if null_model == "toroidal_shift":
+            if grid_shape is None:
+                raise ValueError(
+                    "null_model='toroidal_shift' requires grid_shape=(rows, cols)."
+                )
+            p_value = self._toroidal_shift_pvalue(
+                x_std, y_std, W_sub, I_xy, N, W_sum, permutations, random_state, grid_shape,
+            )
+        else:
+            p_value = self._permutation_pvalue(
+                x_std, y_std, W_sub, I_xy, N, W_sum, permutations, random_state
+            )
 
         # Spearman's rank correlation
         rho, spearman_p = spearmanr(x_clean, y_clean)
@@ -217,6 +256,65 @@ class BivariateCorrelationGate:
             if abs(stat) >= observed_abs:
                 count += 1
         # Pseudo p-value: (M+1) / (R+1)
+        return (count + 1) / (permutations + 1)
+
+    @classmethod
+    def _toroidal_shift_pvalue(
+        cls,
+        x_std: np.ndarray,
+        y_std: np.ndarray,
+        W: np.ndarray,
+        observed: float,
+        N: int,
+        W_sum: float,
+        permutations: int,
+        random_state: int,
+        grid_shape: Tuple[int, int],
+    ) -> float:
+        """R-2: conditional-permutation null preserving y's OWN spatial
+        autocorrelation, via toroidal (wrap-around) translation on a
+        regular lattice.
+
+        Each null draw is y_std itself, rigidly shifted by a random
+        (row, col) offset with wrap-around (np.roll on both axes). Unlike
+        free permutation -- which fully scrambles y and so always compares
+        the observed statistic against a null where y has ZERO spatial
+        structure -- a toroidal shift is a rigid translation: y's own
+        autocorrelation is preserved exactly (every pairwise relationship
+        among y's values is unchanged), only its spatial ALIGNMENT with x
+        is randomized. This directly targets the documented weakness: two
+        independently-but-strongly-autocorrelated fields can show a large
+        bivariate I_xy purely by chance, and free permutation's null (built
+        from structureless shuffled y) cannot see that this is a realistic,
+        unremarkable outcome for two autocorrelated fields -- only a null
+        built from equally-autocorrelated y's can.
+
+        Requires a regular lattice: x_std/y_std/W must be in the same
+        row-major order as the grid (index = row*cols + col), matching
+        autocarto.demo.make_grid_polygons. Not applicable to irregular
+        real-world polygons (e.g. census tracts) without a different
+        conditional-permutation scheme -- this is exactly why it is opt-in,
+        not the default.
+        """
+        rows, cols = grid_shape
+        if rows * cols != N:
+            raise ValueError(
+                f"grid_shape {grid_shape} (rows*cols={rows * cols}) does not "
+                f"match N={N} observations."
+            )
+        if permutations <= 0:
+            return 1.0
+        rng = np.random.default_rng(random_state)
+        observed_abs = abs(observed)
+        y_grid = y_std.reshape(rows, cols)
+        count = 0
+        for _ in range(permutations):
+            dr = int(rng.integers(0, rows))
+            dc = int(rng.integers(0, cols))
+            y_shifted = np.roll(np.roll(y_grid, dr, axis=0), dc, axis=1).ravel()
+            stat = cls._bivariate_morans_i(x_std, y_shifted, W, N, W_sum)
+            if abs(stat) >= observed_abs:
+                count += 1
         return (count + 1) / (permutations + 1)
 
     def _decide(self, I_xy: float, rho: float) -> tuple:
