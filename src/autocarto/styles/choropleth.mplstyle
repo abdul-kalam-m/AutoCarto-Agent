@@ -1,0 +1,43 @@
+# AutoCarto-Agent curated style — choropleth (single-variable thematic maps)
+# High data-ink ratio: no axis ticks/frame (a map's coordinate frame is not
+# meaningful chart-junk), minimal chrome, legend/title carry all annotation.
+
+figure.facecolor: white
+figure.dpi: 150
+savefig.dpi: 300
+savefig.facecolor: white
+savefig.bbox: tight
+
+font.family: sans-serif
+font.sans-serif: DejaVu Sans, Arial, Helvetica
+font.size: 9.0
+
+axes.titlesize: 12.0
+axes.titleweight: bold
+axes.titlepad: 8.0
+axes.edgecolor: none
+axes.linewidth: 0.0
+axes.grid: False
+axes.spines.top: False
+axes.spines.right: False
+axes.spines.left: False
+axes.spines.bottom: False
+axes.labelsize: 8.0
+
+xtick.bottom: False
+xtick.labelbottom: False
+ytick.left: False
+ytick.labelleft: False
+
+legend.frameon: True
+legend.framealpha: 0.9
+legend.edgecolor: 0.8
+legend.fontsize: 7.5
+legend.title_fontsize: 8.0
+legend.borderpad: 0.5
+
+text.color: 0.15
+axes.labelcolor: 0.15
+
+patch.edgecolor: white
+patch.linewidth: 0.2

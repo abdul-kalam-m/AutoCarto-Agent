@@ -1,0 +1,43 @@
+# AutoCarto-Agent curated style — presentation / poster output
+# Larger type and thicker strokes than the report styles so a figure holds
+# up at poster-viewing distance (2-3 m) or projected on a screen.
+
+figure.facecolor: white
+figure.dpi: 150
+savefig.dpi: 300
+savefig.facecolor: white
+savefig.bbox: tight
+
+font.family: sans-serif
+font.sans-serif: DejaVu Sans, Arial, Helvetica
+font.size: 13.0
+
+axes.titlesize: 18.0
+axes.titleweight: bold
+axes.titlepad: 12.0
+axes.edgecolor: none
+axes.linewidth: 0.0
+axes.grid: False
+axes.spines.top: False
+axes.spines.right: False
+axes.spines.left: False
+axes.spines.bottom: False
+axes.labelsize: 12.0
+
+xtick.bottom: False
+xtick.labelbottom: False
+ytick.left: False
+ytick.labelleft: False
+
+legend.frameon: True
+legend.framealpha: 0.92
+legend.edgecolor: 0.7
+legend.fontsize: 11.0
+legend.title_fontsize: 12.0
+legend.borderpad: 0.7
+
+text.color: 0.1
+axes.labelcolor: 0.1
+
+patch.edgecolor: white
+patch.linewidth: 0.4

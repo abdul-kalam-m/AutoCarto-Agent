@@ -24,12 +24,14 @@ dependencies = [
     "pandas>=2.2",
     "matplotlib>=3.8",
     "jenkspy>=0.3",
+    "pyproj>=3.5",
+    "colorspacious>=1.1",
 ]
 
 [project.optional-dependencies]
 retrieval = ["qdrant-client>=1.8"]
 geo = ["geopandas>=0.14", "libpysal>=4.9"]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "esda>=2.5"]
 
 [project.scripts]
 autocarto = "autocarto.cli:main"

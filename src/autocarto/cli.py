@@ -1,7 +1,9 @@
 """AutoCarto-Agent command-line interface.
 
-    autocarto demo [--out DIR]        deterministic demo harness
-    autocarto benchmark [--out DIR]   mini-benchmark (naive-policy rejection rates)
+    autocarto demo [--out DIR]              deterministic demo harness
+    autocarto benchmark [--out DIR]         mini-benchmark (naive-policy rejection rates)
+    autocarto run "<prompt>" [--out DIR]    Propose-Verify-Execute orchestrator run
+                              [--seed N] [--max-iter N]
 """
 
 from __future__ import annotations
@@ -30,8 +32,11 @@ def main(argv: List[str] | None = None) -> int:
     if command == "benchmark":
         from autocarto.benchmark import main as benchmark_main
         return benchmark_main(rest)
+    if command == "run":
+        from autocarto.run_cli import main as run_main
+        return run_main(rest)
 
-    print(f"autocarto: unknown command {command!r} (expected 'demo' or 'benchmark')",
+    print(f"autocarto: unknown command {command!r} (expected 'demo', 'benchmark', or 'run')",
           file=sys.stderr)
     return 2
 

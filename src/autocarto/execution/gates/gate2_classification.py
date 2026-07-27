@@ -200,7 +200,27 @@ class ClassificationDiagnosticEngine:
             gvf = 0.0
 
         # Step 4: Decision
-        if diagnosis == "well_behaved" and gvf >= self.GVF_THRESHOLD:
+        #
+        # PATCH (orchestrator integration, P2): the pass condition used to
+        # require `diagnosis == "well_behaved"` in addition to a good GVF.
+        # That is stricter than it needs to be: by this point, Step 2 has
+        # already enforced `proposed_method == prescribed["method"]` for
+        # every non-well-behaved diagnosis (a mismatch returns early). So
+        # for any diagnosis, reaching Step 4 means the method is already
+        # correct — the only remaining question is fit quality (GVF).
+        #
+        # The old, stricter condition meant a classification that exactly
+        # transcribed the mandated method AND mandated breaks (GVF=0.97 in
+        # the discovered case) was rejected forever, because the diagnosis
+        # label ("heavy_right_skew" etc.) describes the *raw distribution*,
+        # not the classification quality, and never becomes "well_behaved"
+        # just because a good classification was supplied. This produced
+        # an unwinnable loop for the LLM with no action that could ever
+        # pass Gate 2 — undiscovered until Orchestrator.run() actually
+        # drove a second iteration with a correctly-transcribed proposal
+        # (see tests/test_orchestrator.py); no prior test exercised that
+        # scenario.
+        if gvf >= self.GVF_THRESHOLD:
             return DiagnosticResult(
                 diagnosis=diagnosis,
                 gvf=gvf,

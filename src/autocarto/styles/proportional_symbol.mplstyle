@@ -1,0 +1,44 @@
+# AutoCarto-Agent curated style — proportional symbol / dot density maps
+# Base geometry (county/tract outlines) rendered light-grey so symbols carry
+# the visual weight; Gate 3a routes here whenever a variable lacks spatial
+# autocorrelation, so the style must not visually imply clustering on its own.
+
+figure.facecolor: white
+figure.dpi: 150
+savefig.dpi: 300
+savefig.facecolor: white
+savefig.bbox: tight
+
+font.family: sans-serif
+font.sans-serif: DejaVu Sans, Arial, Helvetica
+font.size: 9.0
+
+axes.titlesize: 12.0
+axes.titleweight: bold
+axes.titlepad: 8.0
+axes.edgecolor: none
+axes.linewidth: 0.0
+axes.grid: False
+axes.spines.top: False
+axes.spines.right: False
+axes.spines.left: False
+axes.spines.bottom: False
+
+xtick.bottom: False
+xtick.labelbottom: False
+ytick.left: False
+ytick.labelleft: False
+
+legend.frameon: True
+legend.framealpha: 0.9
+legend.edgecolor: 0.8
+legend.fontsize: 7.5
+legend.scatterpoints: 1
+
+text.color: 0.15
+axes.labelcolor: 0.15
+
+patch.edgecolor: 0.35
+patch.linewidth: 0.4
+
+lines.markeredgewidth: 0.6

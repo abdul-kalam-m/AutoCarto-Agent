@@ -283,12 +283,6 @@ class SandboxExecutor:
                 execution_time_ms=(time.time() - start) * 1000,
             )
 
-        # PATCH: stylesheet injection is now done via the import alias the user
-        # actually uses, and only when a `pyplot` import is present. We also
-        # quote the style path safely so a stray quote does not corrupt the
-        # generated source.
-        sanitized = self._inject_style(sanitized)
-
         if self.backend == "docker":
             return self._execute_docker(sanitized, data_snapshot)
         if self.backend == "pyodide":
@@ -301,23 +295,24 @@ class SandboxExecutor:
             "in-process exec(); raise this error to the caller instead."
         )
 
-    def _inject_style(self, code: str) -> str:
-        """Insert ``plt.style.use(<style>)`` directly after the pyplot import."""
-        style_literal = json.dumps(self.style)  # safe quoting
-        replacements = [
-            (
-                "import matplotlib.pyplot as plt",
-                f"import matplotlib.pyplot as plt\nplt.style.use({style_literal})",
-            ),
-            (
-                "from matplotlib import pyplot as plt",
-                f"from matplotlib import pyplot as plt\nplt.style.use({style_literal})",
-            ),
-        ]
-        for old, new in replacements:
-            if old in code:
-                return code.replace(old, new, 1)
-        return code
+    def _resolve_runtime_style(self) -> str:
+        """Resolve ``self.style`` to a path/name ``matplotlib.style.use`` accepts.
+
+        FIX (TD-9): style used to be applied by splicing a
+        ``plt.style.use(...)`` call into the *text* of LLM-generated code
+        (see git history / CHANGES.md) — fragile (misses aliased pyplot
+        imports, breaks on code that never imports pyplot itself but still
+        renders via ``GeoDataFrame.plot()``) and conceptually wrong: style
+        is a rendering concern, and the LLM tier should not be the one
+        applying it (Manual §6.2-3, "the code never controls style").
+
+        The fix moves style application to the *runner*: the sandbox
+        executor calls ``matplotlib.style.use(...)`` itself, in the
+        process/container that will run the sanitized code, before that
+        code executes. The code text is never touched.
+        """
+        from autocarto.styles import resolve_style
+        return resolve_style(self.style)
 
     # ------------------------------------------------------------------
     # Docker backend
@@ -348,6 +343,16 @@ class SandboxExecutor:
                 "--security-opt=no-new-privileges",
                 "--cap-drop=ALL",
                 "--rm",
+                # TD-9: style is applied runner-side via an env var the
+                # container entrypoint reads and passes to
+                # matplotlib.style.use(...) before running exec.py — the
+                # code in exec.py never sets its own style. NOTE: this env
+                # var is unconsumed today because no container image or
+                # entrypoint script exists yet (Manual TD-5, still open);
+                # wiring it here documents the intended contract for when
+                # Dockerfile.sandbox ships, it does not itself make Docker
+                # execution work.
+                "-e", f"AUTOCARTO_MPLSTYLE_PATH={self._resolve_runtime_style()}",
                 "-v", f"{tmpdir}:/workspace:ro",
                 "autocarto-sandbox:latest",
                 "python", "/workspace/exec.py",
@@ -497,6 +502,16 @@ class _DevOnlySandboxExecutor(SandboxExecutor):
         except (ImportError, ValueError):
             pass
 
+        # TD-9: apply style runner-side, in this process, before the user
+        # code runs — matplotlib rcParams are process-global, so this takes
+        # effect for any plt/GeoDataFrame.plot() call the executed code
+        # makes, without the code text ever mentioning a style at all.
+        try:
+            import matplotlib.style
+            matplotlib.style.use(self._resolve_runtime_style())
+        except (ImportError, OSError, ValueError):
+            pass  # style unavailable; execution proceeds with whatever rcParams are active
+
         safe_builtins = self._build_safe_builtins()
         exec_globals: Dict[str, Any] = {"__builtins__": safe_builtins, "__name__": "sandbox"}
         result: Dict[str, Any] = {"error": None}
@@ -541,5 +556,4 @@ class _DevOnlySandboxExecutor(SandboxExecutor):
                 error_type="sanitization_failure",
                 execution_time_ms=(time.time() - start) * 1000,
             )
-        sanitized = self._inject_style(sanitized)
         return self._execute_inprocess(sanitized)

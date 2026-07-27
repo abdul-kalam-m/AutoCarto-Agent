@@ -1,0 +1,40 @@
+# AutoCarto-Agent curated style — print / policy-report output
+# Smaller, denser type for figures embedded in a multi-column report page
+# (the Pew/Datawrapper aesthetic referenced in Abstract_revised.txt: high
+# data-ink ratio, muted chrome, restrained legend, no default-viridis feel).
+
+figure.facecolor: white
+figure.dpi: 150
+savefig.dpi: 300
+savefig.facecolor: white
+savefig.bbox: tight
+
+font.family: serif
+font.serif: Georgia, Times New Roman, DejaVu Serif
+font.size: 8.0
+
+axes.titlesize: 10.0
+axes.titleweight: bold
+axes.titlepad: 6.0
+axes.edgecolor: none
+axes.linewidth: 0.0
+axes.grid: False
+axes.spines.top: False
+axes.spines.right: False
+axes.spines.left: False
+axes.spines.bottom: False
+axes.labelsize: 7.0
+
+xtick.bottom: False
+xtick.labelbottom: False
+ytick.left: False
+ytick.labelleft: False
+
+legend.frameon: False
+legend.fontsize: 6.5
+
+text.color: 0.2
+axes.labelcolor: 0.2
+
+patch.edgecolor: white
+patch.linewidth: 0.15
