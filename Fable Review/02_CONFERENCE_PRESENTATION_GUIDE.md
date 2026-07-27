@@ -1,9 +1,11 @@
 # AutoCarto-Agent — STDS Conference Presentation Guide
 
 **For:** STDS Spatiotemporal Conference (stds.stcenter.net) · poster presentation, with lightning-talk and full-talk variants
-**Prepared:** 2026-07-06 · **Companion:** [01_OPERATING_MANUAL.md](01_OPERATING_MANUAL.md) (cited as *Manual §n*)
+**Prepared:** 2026-07-06 · **Updated 2026-07-27** (see the note below) · **Companions:** [01_OPERATING_MANUAL.md](01_OPERATING_MANUAL.md) (cited as *Manual §n*) · [06_POSTER_COPY.md](06_POSTER_COPY.md) (cited as *Poster Copy §n* — the authoritative, current source for poster text specifically; this guide's own §4 poster-review section is now historical, see the note there)
 
 Everything in this guide is grounded in the repository and in measurements taken during this review. Where a number on the current poster is wrong, the corrected, verified value is given — with the script that proves it.
+
+> **⚠ Read this before using anything below.** This document was drafted 2026-07-06 and describes a system where 2 of 6 gates were implemented, no orchestrator or LLM tier existed, and the gVisor sandbox was "specified, never run." **None of that is true anymore.** All six gates, a real Propose→Verify→Execute orchestrator, a real open-source LLM tier, and a red-team-tested gVisor sandbox were all built and CI-verified in the roadmap phases completed 2026-07-27 (`Fable Review/01_OPERATING_MANUAL.md`'s dated status blocks have the full, honest sequence). This pass updates every place that framing made a false claim — narrative and rhetorical sections (the hook, the one-liners, positioning against related work) needed no change and are untouched; every Q&A answer, the claim-discipline table, the cheat sheet, and the poster-review section were checked against current reality and corrected where wrong. Numbers below marked *(verified 2026-07-27)* were re-run fresh for this pass; numbers unmarked and unchanged from the original draft describe the synthetic Atlanta case, whose underlying gate math nothing since has touched.
 
 ---
 
@@ -14,7 +16,7 @@ Everything in this guide is grounded in the repository and in measurements taken
 1. **Hook — the beautiful wrong map.** LLMs write GeoPandas fluently. The maps compile, render, and look professional. They are also, routinely, statistically invalid: quantile breaks on zero-inflated disease counts (an empty class and a lie about "hot spots"), Web-Mercator for county area comparisons (Georgia inflated), red-green ramps unreadable to 8% of male viewers, bivariate encodings for variable pairs with no spatial cross-correlation (a map of pure noise that *looks* like a pattern).
 2. **The failed instinct.** The field's reflex is better prompting or fine-tuning. But a stochastic system cannot *guarantee* anything, and temperature 0 is not determinism (§7 Q6). Cartographic validity is not a style preference — it is checkable mathematics.
 3. **The inversion (your contribution).** Don't make the LLM a better statistician. **Remove its statistical authority entirely.** The LLM proposes concepts and assembles code; a deterministic engine computes the statistics, vetoes invalid proposals, and — the key move — *prescribes the exact remedy*: the mandated method, the precomputed break values, the code snippet. Rejection without prescription would loop forever; rejection **with** prescription converges in ≤3 iterations because the LLM's remaining job is transcription.
-4. **Proof it behaves.** On 530 real Atlanta census tracts (TIGER geometry), the engine caught naive classification proposals on two skewed variables, prescribed log+Jenks (GVF 0.751→0.835 and 0.774→0.861 — corrected numbers, §6.2), verified bivariate spatial cross-correlation (I_xy=+0.326, pseudo-p=0.005 on 199 permutations; ρ=+0.947), and only then unlocked the bivariate encoding. Every decision is in a machine-readable trace; re-running the pipeline reproduces the statistical trace **byte-identically**.
+4. **Proof it behaves — on synthetic data with known ground truth, and on real data.** On 530 real Atlanta census tracts (TIGER geometry), the engine caught naive classification proposals on two skewed variables, prescribed log+Jenks (GVF 0.751→0.835 and 0.774→0.861 — corrected numbers, §6.2), verified bivariate spatial cross-correlation (I_xy=+0.326, pseudo-p=0.005 on 199 permutations; ρ=+0.947), and only then unlocked the bivariate encoding. Every decision is in a machine-readable trace; re-running the pipeline reproduces the statistical trace **byte-identically**. *(Added 2026-07-27, verified fresh:)* the same gates, unmodified, ran against real Census ACS median household income and real CDC PLACES asthma prevalence for the same 519 tracts: I_xy=−0.56 (p=0.005), ρ=−0.78, APPROVE — a genuine, unengineered health-equity pattern, not a synthetic validation case.
 5. **The claim.** A reference architecture for constrained agentic GIS: LLMs belong in autonomous cartography *when and only when* every numerical decision is subject to deterministic validation — and the validated core of that architecture is implemented, tested, and reproducible today.
 
 ### 1.2 One-liners (pick one, use it consistently)
@@ -75,12 +77,14 @@ One honest sentence to keep handy: *"Nothing in the gate mathematics is new — 
 
 **Precision rules (these keep you out of trouble):**
 - Say **"deterministic validation"**, not "deterministic system." The LLM tier is stochastic by nature; your claim is that its stochasticity cannot reach the artifact unverified. If pressed on API nondeterminism, that's Q6 — and your architecture is *specifically the answer to it*.
-- Say **"the validated core is implemented; the surrounding architecture is specified"** — never imply all six gates run today (gap table in *Manual §7*). The two implemented gates are the two novel ones; the missing four are established computations. Scope stated is scope defended.
-- Say **"synthetic variables on real geometry, by design"** — the SAR construction gives known ground truth, which is what lets you *verify the verifier*. This is a methodological choice you can defend proudly (Q1), provided you never let anyone believe the asthma data is real CDC data.
+- **(Updated 2026-07-27 — this rule inverted.)** Say **"all six gates are implemented and tested"** — that is now simply true (Manual §11, all roadmap phases closed 2026-07-27), and the previous instruction to hedge this away would now be *underclaiming*, which is its own kind of inaccuracy. What's still honestly scoped: a real, labeled natural-language-prompt benchmark run through the paid LLM API doesn't exist (cost-bounded, deliberately not built) — that is the one claim still worth hedging, not the gate count.
+- Say **"synthetic variables on real geometry, by design"** for the *controlled validation case* — the SAR construction gives known ground truth, which is what lets you *verify the verifier*; this remains a methodological choice to defend proudly (Q1). **New as of 2026-07-27:** you are no longer limited to that defense alone — a second, real-data case exists alongside it (real Census ACS income × real CDC PLACES asthma, §1.1 point 4), so "why not real data?" now has "we also have that" as a direct answer, not just a roadmap promise.
 
 ---
 
 ## 4. Poster review (current `Poster.jpg`) and slide sequences
+
+> **§4.1–4.2 are historical.** They describe the pre-review poster and its corrections as of 2026-07-06/07-17 — every fix listed in §4.2 was applied, and the poster has since gone through further complete passes (2026-07-26, 2026-07-27) that §4.2 knows nothing about (real gVisor status, the 42-scenario benchmark, real ACS/CDC data, the current test count). **For current, authoritative poster text, use [06_POSTER_COPY.md](06_POSTER_COPY.md) — not this section.** Left in place as a record of what the poster used to say and why it changed, not as a source to paste from. §4.3–4.4 (slide sequences) are updated below and remain current.
 
 ### 4.1 What the current poster does well — keep
 
@@ -111,15 +115,15 @@ One honest sentence to keep handy: *"Nothing in the gate mathematics is new — 
 | 3 | Why prompting can't fix it | 3 bullets: no guarantees, temp-0 ≠ determinism, critique loops are stochastic too | Set up the inversion. |
 | 4 | The inversion | Propose-Verify-Execute triad, minimal diagram | Authority, not intelligence, is the design variable. |
 | 5 | Architecture | `architecture_boundary.png` | Walk the boundary; 20 seconds max on Tier 3. |
-| 6 | The gate suite | 6-gate table w/ one-line rule each | "Two of these are research; four are engineering. The research ones are built." |
+| 6 | The gate suite | 6-gate table w/ one-line rule each | *(updated 2026-07-27)* "All six are built and tested. Two carry the research risk — the diagnostic-prescriptive classification engine and the bivariate justification gate; the other four are established computations we implemented against them: CRS integrity, projection distortion, color-vision accessibility, completeness." |
 | 7 | Gate 2 deep-dive | `gate2_distribution_diagnostics.png` | Diagnosis regimes; prescription = breaks + snippet. |
 | 8 | The arcsinh save | zoom of `negative_values_arcsinh` panel | Story beat (§5.2): the engine caught what the LLM would have silently clamped. |
 | 9 | Gate 3b decision matrix | APPROVE/WARN/REJECT table + `gate3b_bivariate_scenarios.png` | The system refuses map *types*, with a mandated alternative. |
 | 10 | Data fabric | bbox-first diagram + Aleutian case | "Embeddings never get to veto geometry." |
-| 11 | Atlanta case | `atlanta_results_panel.png` (regenerate with `python scripts/gen_results_panel.py` — the old `_publication` suffix is a stale, pre-V1 filename) | Corrected GVF numbers (0.75→0.83, 0.77→0.86); I_xy=0.326 p=0.005; ρ=0.947. |
+| 11 | Atlanta case | `atlanta_results_panel.png` (regenerate with `python scripts/gen_results_panel.py` — the old `_publication` suffix is a stale, pre-V1 filename) | Corrected GVF numbers (0.75→0.83, 0.77→0.86); I_xy=0.326 p=0.005; ρ=0.947. *(2026-07-27: if time allows, add one spoken line — "the same gates, unmodified, run against real ACS income and CDC asthma data for the same tracts: I_xy=−0.56, a real health-equity signal" — no new slide/figure needed, Poster Copy §5 Block A′ has the exact numbers.)* |
 | 12 | Reproducibility | trace excerpt + a diff screenshot of **`gate2_classification_trace.json` and `gate3b_bivariate_trace.json` only** — never a whole-folder diff, which would show two harmless timing-only differences in the retrieval/sandbox traces (Poster Copy §5 trace-identity box) | This is what 'deterministic validation' buys you. |
-| 13 | Scope & limitations | Own it: synthetic variables (why), 2/7 gates, benchmark pending, container unbuilt | Pre-empts 80% of hostile Q&A (§7). |
-| 14 | Roadmap | Manual §11 phase strip | Benchmark → full gate suite → gVisor → release. |
+| 13 | Scope & limitations | *(rewritten 2026-07-27 — every item in the old list is done)* Own it: no labeled-real-prompt-through-real-LLM benchmark (cost-bounded, deliberate); test coverage % never formally measured; the orchestrator's real render path is in-process, not container-isolated (the gVisor container is a separate, tested, standalone boundary — architecture.md explains the split precisely) | Pre-empts hostile Q&A (§7) — the gaps are smaller and more specific now, which is itself worth saying out loud. |
+| 14 | What's next | Manual §11 — the roadmap that used to live here is complete | TestPyPI release is the one remaining manual step; a cost-bounded real-LLM prompt benchmark is the one remaining measurement. Everything else asked for is built. |
 | 15 | Close | One-liner reprise + QR + "the validation runs offline in under 3 seconds — find me" | Invitation, not summary. |
 
 ### 4.4 Lightning version (5 frames, 3 min)
@@ -145,7 +149,8 @@ One honest sentence to keep handy: *"Nothing in the gate mathematics is new — 
 
 ### 5.2 Figures to create (ranked by payoff)
 
-1. **F-NEW-1 — "Ungated vs Gated", the killer visual — ✅ BUILT** (`scripts/gen_ungated_vs_gated.py` → `output/figures/ungated_vs_gated.png`). Same Atlanta variable (530 tracts, real TIGER geometry), two maps: LEFT = naive LLM output (equal-interval breaks + rainbow/jet ramp) — a flat wash where **414/530 tracts (78%) collapse into one class**; RIGHT = the gated output (Gate-2 log+Jenks, balanced 98/134/144/91/63, colour-blind-safe sequential ramp) revealing the real spatial gradient. A histogram strip shows *why* (equal-interval wastes classes on the sparse tail). Every number is computed by the real Gate 2, not asserted, and regression-tested (`tests/test_figures.py`). **Honesty note baked into the figure:** Gate 5 (colour) is labelled *specified*, not implemented; and — a sharper point discovered while building it — equal-interval actually scores a slightly *higher* GVF (0.87 vs 0.83) while producing the worse map, so the figure uses **class balance**, not GVF, as the honest failure metric. This doubles as a rebuttal to "isn't a gate just a GVF filter?": Gate 2 is a distribution *diagnostic*, and here it deliberately accepts lower GVF to produce a legible map. *This is the single highest-leverage artifact — the whole thesis in one glance.* Regenerate with `python scripts/gen_ungated_vs_gated.py` (needs `pip install -e .[geo]`).
+1. **F-NEW-1 — "Ungated vs Gated", the killer visual — ✅ BUILT** (`scripts/gen_ungated_vs_gated.py` → `output/figures/ungated_vs_gated.png`). Same Atlanta variable (530 tracts, real TIGER geometry), two maps: LEFT = naive LLM output (equal-interval breaks + rainbow/jet ramp) — a flat wash where **414/530 tracts (78%) collapse into one class**; RIGHT = the gated output (Gate-2 log+Jenks, balanced **98/134/145/90/63** *(corrected 2026-07-27 — was printed as 98/134/144/91/63; see the finding below)*, colour-blind-safe sequential ramp) revealing the real spatial gradient. A histogram strip shows *why* (equal-interval wastes classes on the sparse tail). Every number is computed by the real Gate 2, not asserted, and regression-tested (`tests/test_figures.py`) — though the regression test checks structural properties (max class share, top-class near-empty), not the exact literal counts, which is exactly how this drift went uncaught until this pass. **Honesty note baked into the figure, corrected 2026-07-27:** Gate 5 (colour) is now implemented and computed on this figure, not "specified" — but *tested directly*, it turns out jet actually **passes** Gate 5's specific check at this class count (worst adjacent-class delta-E 16.4 under deuteranomaly, comfortably above the 10.0 floor); several other well-documented "bad" rainbow colormaps do too. Jet's real flaw — non-monotonic perceptual lightness, so color alone doesn't encode "low to high" — is genuine and well-documented, but is a different dimension than what Gate 5's current metric (discrete adjacent-class CVD discriminability) measures. The figure now says this explicitly instead of implying Gate 5 would catch it. Also: equal-interval actually scores a slightly *higher* GVF (0.866 vs 0.835) while producing the worse map, so the figure uses **class balance**, not GVF, as the honest failure metric. This doubles as a rebuttal to "isn't a gate just a GVF filter?": Gate 2 is a distribution *diagnostic*, and here it deliberately accepts lower GVF to produce a legible map. *This is the single highest-leverage artifact — the whole thesis in one glance.* Regenerate with `python scripts/gen_ungated_vs_gated.py` (needs `pip install -e .[geo]`).
+   > **Finding, 2026-07-27:** the class-count drift (144/91 → 145/90) traces to `threadpool_limits(1)` around the synthetic SAR draw's `scipy.linalg.solve` call (`scripts/_atlanta_case.py`), added during this session's CI segfault fix (Manual, CI status update) for a completely unrelated, legitimate reason (Linux runner stability). Single- vs multi-threaded BLAS reduction order differs at the ~1e-15 level — far below anything that moves GVF/I_xy/ρ at their quoted precision, but just enough to flip one tract sitting almost exactly on a Jenks break boundary into the adjacent class. Not a bug, and not worth reverting the CI fix over; the correct response is citing the number the code actually produces today, which this pass does. Same underlying lesson as the "byte-identical" trace-scope correction elsewhere in this project: a change that's provably harmless to every statistic that matters can still be provably *not* byte-identical downstream, and claims should be scoped to what was actually re-verified, not assumed stable by association.
 2. **F-NEW-2 — Trace excerpt panel — ✅ BUILT** (`scripts/gen_trace_excerpt.py` → `output/figures/trace_excerpt.png`). One Gate-2 rejection end to end as a three-card **Propose → Verify → Execute** flow: the (simulated) LLM's naïve Fisher-Jenks proposal; the deterministic REJECT verdict *verbatim from the emitted JSON trace* (`"passed": false`, `prescribed_breaks`, and the bold `DO NOT propose alternative methods.` mandate); and the mandated code diff (naïve breaks struck out, `np.digitize` on the prescribed breaks added). Uses the demo's zero-inflated case (49.8% zeros) and is asserted at render time to match the committed trace byte-for-byte; content is regression-tested (`tests/test_trace_excerpt.py`). Honesty on the figure face: Tier 1 is labelled **simulated in V1**, and breaks are rounded for display (trace keeps full precision). This is the "artifact in hand" for poster conversations and the reproducibility slide — reviewers trust a real trace over a diagram.
 3. **F-NEW-3 — Rejection-flow Sankey — ✅ BUILT** (`scripts/gen_rejection_sankey.py` → `output/figures/rejection_sankey.png`). The population view that complements F-NEW-2's single case: 24 naïve proposals flow **Proposal → Gate → Verdict → Mandated outcome**, with each rejection routed to its specific deterministic remedy (Gate 2's four prescriptions — break-at-0, log+Jenks, arcsinh, unique-value — and Gate 3b's side-by-side-univariate mandate). Driven entirely by `autocarto.benchmark.build_report()` — **no fabricated flows**, counts asserted to sum to the real scenarios, conservation regression-tested (`tests/test_rejection_sankey.py`). Honesty on the figure face: labelled an **adversarial stress corpus** (so the rejection share is high by design, not a natural rate), **first-pass verdicts** (not the full iterate-to-convergence loop), and it discloses the **1 false-approval** among the 6 Gate-3b approvals (the documented null-model limitation, R-2). *Exactly the "do not fabricate flows" discipline this guide demanded — the figure now exists because the benchmark does.*
 4. The arcsinh story slide (Slide 8) is a crop of an existing figure — no new work, big narrative payoff: *"The LLM proposed log1p. The variable's minimum is −0.8 — log would silently clamp 3% of tracts to zero and corrupt the diagnosis downstream. The engine detected the negative support and mandated arcsinh with back-transformed breaks. This is exactly the class of silent error the architecture exists to catch."*
@@ -183,9 +188,9 @@ autocarto demo
 > "Sandbox: a reflection escape — `().__class__.__mro__` — blocked with three violations; a docstring that merely *mentions* subprocess passes. Static analysis with a low false-positive rate."
 > "And if I run it again —" **[rerun]** "— the statistical trace is byte-identical. That's the reproducibility claim, demonstrated."
 
-### 6.4 Demo honesty rule
+### 6.4 Demo honesty rule (updated 2026-07-27 — the old answer is now only half true)
 
-If anyone asks whether the LLM is in the loop during the demo: *"No — the demo scripts the LLM's proposals so you're seeing the deterministic layer isolated; that's also how we unit-test it. The LLM integration is the orchestrator phase of the roadmap."* Never let a visitor walk away believing they watched an end-to-end autonomous run.
+If anyone asks whether the LLM is in the loop during **this specific demo** (`autocarto demo`): *"Not in this one — this command scripts the proposals so you're seeing the deterministic layer isolated; that's also how we unit-test it. But it's not roadmap anymore — `autocarto run` drives the real thing: a real open-source LLM proposes, the same gates validate, and it converges the same way. Want to see that instead?"* — and if they say yes, `autocarto run "<prompt>" --llm nvidia --data real` is a real command that works, though it needs an API key and isn't part of the pre-flighted offline demo, so decide before the conference whether you're prepared to run it live (network dependency, ~seconds of real API latency) or keep it as a described-but-not-shown capability. **Never let a visitor walk away believing `autocarto demo` itself is an end-to-end autonomous run — it deliberately isn't, on purpose, for exactly the reason stated: isolating the deterministic layer for a fast, offline, reproducible showcase.** That design choice is still correct; only the *sentence describing what else exists* was stale.
 
 ---
 
@@ -193,13 +198,13 @@ If anyone asks whether the LLM is in the loop during the demo: *"No — the demo
 
 Rehearse the first eight; skim the rest. Format: question → the answer that is *true per the repo* → the trap to avoid.
 
-**Q1. "Your results are synthetic."**
-→ "Deliberately, and it's disclosed on the poster. The geometry and topology are real — 530 TIGER tracts, real queen-contiguity weights. The variables are SAR fields *because that gives us ground truth*: we control the true spatial structure, so we can verify the gates decide correctly — that's how you validate a validator. Real-variable integration (ACS, CDC PLACES) is the next milestone, and nothing in the gate math changes."
-*Trap:* don't say "the data is basically realistic" — the value is *known truth*, not realism.
+**Q1. "Your results are synthetic."** *(updated 2026-07-27 — this now has a stronger answer)*
+→ "The controlled case is, deliberately, and it's disclosed. The geometry and topology are real — 530 TIGER tracts, real queen-contiguity weights. The variables are SAR fields *because that gives us ground truth*: we control the true spatial structure, so we can verify the gates decide correctly — that's how you validate a validator. But that's not the whole answer anymore — the same gates, completely unmodified, ran against real Census ACS median household income and real CDC PLACES asthma prevalence for the same tracts: I_xy=−0.56, a real, documented health-equity pattern the system found, not manufactured."
+*Trap:* don't say "the data is basically realistic" for the *controlled* case — the value there is *known truth*, not realism. Do say "real" plainly for the ACS/CDC case — it is.
 
-**Q2. "Only two of the six gates exist?"**
-→ "Correct — and by design the two that carry research risk: the diagnostic-prescriptive classification engine and the bivariate justification gate. The remaining four are established computations — CRS checks, Tissot distortion, color-vision simulation, completeness checklists — specified with thresholds and libraries in the engineering plan. We claim a reference architecture plus a validated core, not a finished product."
-*Trap:* never imply G1/G4/G5/G6 run today; the poster's uniform gate stack already walks this line (§4.2-5).
+**Q2. "Only two of the six gates exist?"** *(updated 2026-07-27 — this question no longer has a true "yes")*
+→ "That was true when this question was first drafted; it isn't anymore. All six are implemented and tested — the two that carried research risk (diagnostic-prescriptive classification, bivariate justification) plus CRS checks, Tissot distortion, color-vision simulation, and completeness checklists, all built against the same contract. If you saw an earlier version of this poster or talk that hedged this, that hedge is retired."
+*Trap:* the opposite trap from before — don't undersell by reflexively hedging out of old habit. If pressed on what's *still* not done: a labeled real-prompt-through-real-LLM benchmark (cost-bounded, deliberately not built) and a formally measured test-coverage percentage.
 
 **Q3. "Isn't this just guardrails / input validation?"**
 → "Guardrails check structure — schemas, types, regex. These gates compute *domain statistics on the actual data* — GVF, Moran's I, permutation tests — and on rejection they return a numeric *mandate*: exact breaks, mandated transform, splice-ready code. Validation that prescribes is what turns an open-ended revision loop into bounded transcription."
@@ -220,19 +225,20 @@ Rehearse the first eight; skim the rest. Format: question → the answer that is
 **Q8. "Moran's I gating would reject valid maps — rare-disease surveillance is spatially random but still worth mapping."**
 → "The gate rejects the *choropleth encoding*, not the analysis — the prescription is a proportional-symbol or dot alternative. A choropleth's message *is* its spatial pattern; if I≈0, that message is noise, and the honest map is a different map. Edge cases — negative autocorrelation, checkerboards — need two-sided handling, which is in the G3a spec. And there's a human escape hatch after three iterations; the system is opinionated, not authoritarian."
 
-**Q9. "Where does '23% of proposals rejected' come from?"**
-→ If you've run the §8 mini-benchmark: give the new number and its exact provenance. If not: "Pilot-phase observation; the formal benchmark harness that regenerates it from a fixed prompt corpus is in progress, and the number will be published with the corpus or not at all." *Trap:* do not improvise a methodology that doesn't exist. (Strong recommendation: resolve this before the conference — §8.)
+**Q9. "Where does '23% of proposals rejected' come from?"** *(updated 2026-07-27 — §8's recommended mini-benchmark is done, and grew well past what was proposed)*
+→ "That specific number, nowhere defensible — it's retired. What replaced it: `autocarto benchmark` runs a 42-scenario seeded corpus across all six gates against *known correct outcomes*, and scores decision accuracy, not just a rejection tally — 97.4% (38/39 scored, 3 disclosed-borderline). The one miss is printed, not hidden: two independent fields spuriously cross-correlating, a known limitation of the default null model with a disclosed, real tradeoff opt-in fix."
+*Trap:* don't say "23%" ever again, even as a historical footnote on stage — it invites "so which is it." Lead with the real number's provenance (`autocarto benchmark`, one command) before anyone has to ask.
 
-**Q10. "AST blacklists are trivially bypassable."**
-→ "Agreed — static sanitization is a cost-raiser, not a boundary. The design boundary is container isolation — gVisor, network-none, cap-drop — which is specified but not yet exercised, and we say so. Two additional mitigations: all seven attempted escape classes in our suite are blocked at the AST layer including reflection and `getattr` spellings; and the roadmap moves code generation to template assembly, where the LLM fills slots in audited templates and never writes free-form code at all — which collapses the attack surface far more than any sanitizer."
-*Trap:* never say "100% of escapes blocked" unqualified — say "all attempted vectors in our suite (seven classes)."
+**Q10. "AST blacklists are trivially bypassable."** *(updated 2026-07-27 — the boundary is no longer just specified)*
+→ "Agreed — static sanitization is a cost-raiser, not a boundary, and we say so explicitly in the docs. What changed: the container boundary is now real and tested — Docker + gVisor, network-none, cap-drop-all, non-root, no shell — and we red-teamed it properly: 27 attack vectors, run with the sanitizer *deliberately bypassed*, all blocked by the container itself, verified in CI against real `runsc`, not just locally. Separately, code generation already moved to template assembly for the actual render path — the LLM fills slots in audited templates and never writes free-form logic there at all, which is a stronger mitigation than either layer alone."
+*Trap:* still don't say "100% of escapes blocked" as a universal claim — a gVisor kernel exploit or an escape vector nobody has thought of yet is still possible in principle; say "27 known vectors, tested against the real container, not the sanitizer" — specific and true beats absolute and false.
 
 **Q11. "530 tracts is a toy. What about a million features?"**
 → "The current implementation is dense-matrix and honest about it — fine to ~10k features. The design routes by scale: PySAL below 10k, PostGIS with GiST indexes to a million, Sedona beyond; sparse weights are the first upgrade. The gates' verdicts don't change with scale — only the executor does."
 
-**Q12. "Your permutation test permutes y freely — that ignores y's own spatial autocorrelation and inflates significance."**
-→ "Sharp — yes, the free-permutation null is liberal for two mutually autocorrelated fields. Two mitigations today: the decision requires effect size (|I_xy|>0.15) *and* aspatial correlation (|ρ|>0.20), not p alone. The rigorous upgrade — conditional permutation or Lee's L — is queued as a research task. The gate's role is conservative screening of an *encoding* choice, not causal inference."
-*(Whoever asks this is your most valuable reviewer — get their name.)*
+**Q12. "Your permutation test permutes y freely — that ignores y's own spatial autocorrelation and inflates significance."** *(updated 2026-07-27 — the "queued" upgrade is now built, with an honest result)*
+→ "Sharp — yes, the free-permutation null is liberal for two mutually autocorrelated fields, and the decision matrix requiring effect size (|I_xy|>0.15) *and* aspatial correlation (|ρ|>0.20), not p alone, is still the primary defense. What's new: a conditional null — a toroidal shift, a wrap-around lattice translation that preserves y's own spatial autocorrelation exactly and randomizes only its alignment with x — is now built and opt-in. The honest result, not oversold: on the known problem case, false positives improved from 2 of 3 seeds to 1 of 3, but with a real, disclosed tradeoff — a genuinely-related case flipped from barely-significant to non-significant under the stricter null, a new false negative. A more conservative null reduces false positives at some cost to power; that's the textbook tradeoff, not a free fix, and the default decision matrix is deliberately unchanged — wiring significance in would need its own calibration pass."
+*(Whoever asks this is your most valuable reviewer — get their name; then tell them the honest result exists now, tradeoff and all — Manual's R-2 entry has the full numbers.)*
 
 **Q13. "Why Qdrant bbox payload filters? PostGIS does exact spatial predicates natively."**
 → "Stage-1 bbox on the vector store guarantees the semantic ranker only ever sees spatially plausible candidates — geometry filters *before* similarity, in one system, cheaply. Envelope overlap is necessary, not sufficient, so the design adds exact ST_Intersects refinement in the deterministic tier before computation. A single PostGIS+pgvector store is a legitimate alternative; ours keeps the vector store swappable and the spatial authority in the tier that already owns determinism."
@@ -250,7 +256,7 @@ Rehearse the first eight; skim the rest. Format: question → the answer that is
 
 ## 8. Claim discipline — and the half-day fix that de-risks everything
 
-### 8.1 Assert / soften / drop
+### 8.1 Assert / soften / drop *(updated 2026-07-27 — five of the ten rows below flipped from soften/drop to assert)*
 
 | Claim | Status | Action |
 |---|---|---|
@@ -259,49 +265,53 @@ Rehearse the first eight; skim the rest. Format: question → the answer that is
 | GVF improvement | verified this review | **Assert with corrected numbers**: 0.751→0.835 / 0.774→0.861 (never 0.894) |
 | Byte-identical statistical traces; offline, core validation <3 s | verified | **Assert** — but say "core validation," never promise the whole command finishes in <3 s (interpreter startup alone takes 3.5–6 s; see §6.1) |
 | Antimeridian handling; arcsinh negative-support catch | verified | **Assert** (great war stories) |
-| Sandbox sanitization | verified for 7 attack classes | **Soften wording**: "all attempted vectors in our suite" — never "100% of escapes" |
-| gVisor air-gapped execution | designed, never run | **Soften**: "designed for gVisor; containment layer under validation" |
-| "23% of proposals rejected" | untraceable | **Drop or regenerate** (§8.2) |
-| "34 s end-to-end / 90% LLM latency" (v1 abstract) | no code path exists | **Drop**; do not reintroduce without the benchmark |
-| Six gates | 2 implemented | **Reframe**: "validated core + specified suite" |
+| Real ACS income × CDC asthma: I_xy=−0.56, ρ=−0.78, APPROVE | *new 2026-07-27, verified* | **Assert** — a real, unengineered result, not a synthetic case |
+| A real orchestrator + real (non-mock) LLM tier | *new 2026-07-27, built + tested* | **Assert** — `autocarto run --llm nvidia`, genuine intent parsing, verified live |
+| Sandbox: AST sanitizer + gVisor container | *container now built, 27 vectors red-team-verified in CI* | **Assert** — "the AST layer is a cost-raiser; the container is the boundary, and we tested it as one" (was: soften, container unbuilt) |
+| Ground-truth benchmark (was "23% of proposals rejected") | *42 scenarios, all 6 gates, 97.4% (38/39)* | **Assert** — cite `autocarto benchmark`; never say "23%" again, even as history |
+| "34 s end-to-end / 90% LLM latency" (v1 abstract) | no code path exists | **Drop** — still true; a real-prompt-through-real-LLM benchmark would need to exist first, and it's deliberately cost-bounded-out |
+| Six gates | *all six implemented* | **Assert** — was "2 implemented, reframe as validated core + specified suite"; that framing is now simply wrong |
 
-### 8.2 The half-day mini-benchmark (strongly recommended before the conference)
+### 8.2 The half-day mini-benchmark — superseded, done, and then some (2026-07-27)
 
-The "23%" badge can become honest in ~4 hours, because the "naive LLM" is scriptable:
-1. Define the naive proposal policy = what the demo already simulates (always propose `jenks` with quintile breaks; for bivariate, always propose bivariate encoding).
-2. Corpus: ~30 variable scenarios from the existing generators (5 Gate-2 regimes × parameter draws) + ~10 bivariate SAR scenarios across ρ couplings (all code exists in `demo.py`).
-3. Run gates over the corpus; report *"the deterministic suite rejected X% of naive proposals (N=40 scenarios; dominant causes: zero-inflated classification, absent cross-correlation)"*.
-4. Commit corpus + runner + JSON ledger (seeds fixed) so the number regenerates by one command — then the poster badge survives any audit.
-This is Manual P4-T2/T3 in miniature and becomes the seed of the real benchmark.
+**This section's own recommendation was carried out, and the result exceeded what was proposed here.** What actually shipped (`autocarto benchmark`, Manual P4-T2/T3): not ~40 scenarios across 2 gates, but **42 scenarios across all six gates** — CRS, classification, univariate + bivariate spatial structure, projection distortion, color accessibility — each scored against a *known correct outcome*, not just tallied as rejected/passed. Result: **97.4% (38/39) strict decision accuracy**, with the one miss printed and explained (the known free-permutation null-model limitation, §7 Q12), not hidden. The badge this section worried about surviving an audit now does: `autocarto benchmark` regenerates the exact number from one command, corpus and all. No further action needed here — this section is left as a record of what was asked for, not a live TODO.
 
 ---
 
 ## 9. Pre-conference checklist
 
-**Poster (requires reprint):**
-- [ ] Replace GVF line with corrected numbers (§4.2-1) — *the one mandatory fix*
-- [ ] Resolve the 23% badge: mini-benchmark (§8.2) or remove
-- [ ] gVisor → sanitizer wording fix (§4.2-3)
-- [ ] Add Status & Roadmap micro-box; add QR + contact
-- [ ] Version footer ↔ environment file consistency
+**Poster (all items below are done as of 2026-07-27 — use [06_POSTER_COPY.md](06_POSTER_COPY.md), not this list, for current poster text):**
+- [x] Replace GVF line with corrected numbers (§4.2-1)
+- [x] Resolve the 23% badge — the real benchmark (42 scenarios, all 6 gates, 97.4%) replaced it
+- [x] gVisor → sanitizer wording fix, then a second pass once the container was actually built and red-team tested (Poster Copy §3b)
+- [x] Status box added, now describing a finished pipeline rather than a roadmap (Poster Copy §6)
+- [x] Version footer ↔ environment file consistency — genuinely resolved (TD-6, Poster Copy §7)
+- [x] Class-count citation `[98/134/144/91/63]` corrected to `[98/134/145/90/63]` — a one-tract drift found while updating this guide (§5.2 finding note, above)
 
 **Demo:**
-- [ ] Dry-run `demo.py` on the presentation laptop with the known-good interpreter; verify offline
-- [ ] Record 45 s fallback capture; print one REJECT-trace excerpt
-- [ ] Prepare the two-command determinism show: run, rerun, `fc`/`diff` the trace
+- [x] Dry-run verified offline, current interpreter (`autocarto demo`, `pip install -e .`)
+- [ ] Record 45 s fallback capture; print one REJECT-trace excerpt — still worth doing fresh before the actual conference date
+- [ ] Prepare the two-command determinism show: run, rerun, `diff` the two byte-identical trace files by name (not a folder diff — §9 trace-identity box in Poster Copy)
+- [ ] **New, 2026-07-27:** decide in advance whether to also demo `autocarto run --llm nvidia` live (real API, network-dependent) or keep it described-but-not-shown (§6.4)
 
-**Repo (if sharing the QR):**
-- [ ] Manual Phase 0: git init, promote patched code, delete the stale `- Copy.py` and abstract clutter, README quickstart
-- [ ] Snapshot TIGER GeoJSON (Manual TD-7) so the figure regenerates even if the API changes conference week
+**Repo:**
+- [x] Public GitHub repo, tagged, CI green on every push (Linux + Windows × 2 Python versions + a dedicated gVisor security job)
+- [x] TIGER + ACS + CDC snapshots, all SHA-256 checksummed (`data/MANIFEST.md`)
+
+**Still open, not poster-specific:**
+- [ ] TestPyPI release — packaging verified ready, the publish step itself is a manual action for the maintainer to take
+- [ ] A labeled real-prompt-through-real-LLM benchmark — deliberately not built (cost-bounded)
 
 **Rehearsal:**
 - [ ] 30-second pitch ×10 until automatic; 3-minute walkthrough ×3 aloud
-- [ ] Q1, Q2, Q6, Q9, Q10 answers verbatim-comfortable
-- [ ] Decide your "I don't know" protocol: *"Not measured yet — the harness to measure it is the next milestone"* beats improvisation every time
+- [ ] Q1, Q2, Q6, Q9, Q10 answers verbatim-comfortable — **note Q1, Q2, Q9, Q10 all changed 2026-07-27; re-rehearse even if you had the old answers cold**
+- [ ] Decide your "I don't know" protocol: *"Not measured yet"* beats improvisation every time — but check first, because fewer things are actually unmeasured now than the last time you rehearsed this
 
 ---
 
 ## 10. Cheat sheet — numbers you must own cold
+
+*(rows marked 2026-07-27 are new since this table was last complete; every number below was either reconfirmed or freshly re-run for that pass, not recalled)*
 
 | Number | Value | Source |
 |---|---|---|
@@ -310,13 +320,19 @@ This is Manual P4-T2/T3 in miniature and becomes the seed of the real benchmark.
 | Spearman ρ | **+0.9471** | same run |
 | GVF canopy | naive 0.7514 → prescribed **0.8348** | verified this review |
 | GVF asthma | naive 0.7741 → prescribed **0.8607** | verified this review |
+| F-NEW-1 gated classes | **[98/134/145/90/63]** *(corrected 2026-07-27, was 144/91 — see §5.2 finding)* | `gen_ungated_vs_gated.py`, re-run fresh |
+| **Real ACS × CDC result** *(2026-07-27)* | 519 tracts · I_xy **−0.56** (p=.005) · ρ **−0.78** → APPROVE · income Moran's I **0.59** (p=.001) | re-run against `load_real_atlanta_dataset()` for this pass |
 | Gate 3b thresholds | APPROVE \|I\|>0.15 ∧ \|ρ\|>0.20 · WARN 0.08/0.10 | gate3b source |
 | Gate 2 triggers | 40% zeros · skew 1.5 · >10% outliers · ≤10 unique · GVF ≥0.6 | gate2 source |
 | Grid demo scenarios | APPROVE +0.476 (p=.005) · WARN +0.116 · REJECT −0.025 (p=.580) | demo trace |
 | Iteration cap | 3, then human escalation | Gate 2 |
-| Demo runtime | core validation <3 s (the tool's own printed timer), fully offline, statistical traces **byte-identical** across runs. Total command latency incl. Python/library startup: 3.5–6 s — don't quote "<3 s" for the whole command | re-verified 2026-07-26 |
-| Sandbox suite | 7 attack classes blocked; docstring false-positive fixed; prod refuses in-process exec | sandbox trace |
+| Demo runtime | core validation <3 s (the tool's own printed timer, re-confirmed 2026-07-27 at 2.3 s), fully offline, statistical traces **byte-identical** across runs. Total command latency incl. Python/library startup: 3.5–6 s — don't quote "<3 s" for the whole command | re-verified 2026-07-27 |
+| **Ground-truth benchmark** *(2026-07-27, was "23% of proposals rejected")* | **42 scenarios, all 6 gates** · **97.4% (38/39)** strict decision accuracy · 17/17 benign · 21/22 pathological · 1 disclosed miss | `autocarto benchmark`, re-run fresh |
+| **Test suite** *(2026-07-27, was 67)* | **223 passing**, 33 skipped (live-network/Docker/gVisor-gated, correctly not run everywhere) | `pytest`, re-run fresh |
+| **gVisor red-team suite** *(2026-07-27, new)* | **27 attack vectors**, all blocked under real `runsc` in CI (30/30 including 3 supporting checks) — network, filesystem, privilege escalation, resource exhaustion, reflection, raw syscalls | `tests/security/test_escapes.py`, real `gvisor-security` CI job |
+| Sandbox suite (AST sanitizer layer) | 7 original attack classes + style-override calls (2026-07-27) blocked; docstring false-positive fixed; prod refuses in-process exec | sandbox trace — a *different, earlier* layer than the gVisor row above; §7 Q10 explains why both numbers matter and aren't the same claim |
+| **Orchestrator + real LLM tier** *(2026-07-27, new)* | Propose→Verify→Execute with mandate-retry convergence (≤3 iter); `NvidiaLLM` (Llama 3.1 70B) does genuine intent parsing, verified live to distinguish bivariate from univariate intent from phrasing alone | `autocarto run --llm nvidia`, `tests/test_orchestrator.py` |
 | Patch cycle | 20 fixes: 2 blockers, 3 security, 15 correctness/robustness | CHANGES.md |
 | Diagnosis regimes | 6 (well-behaved, zero-inflated, right-skew→log, negative-skew→**arcsinh**, outlier→head-tail, discrete→unique) | gate2 source |
 
-**Final note.** This project's strongest presentation asset is that its central claims are *demonstrable on demand* — few poster neighbors can rerun their gate verdicts byte-for-byte on a laptop, with the validation itself completing in under three seconds. Build the talk around that superpower, state the scope precisely (which files, which timer — §6.1, Poster Copy §5), and the hard questions become your best material.
+**Final note** *(updated 2026-07-27).* This project's strongest presentation asset is still that its central claims are *demonstrable on demand* — few poster neighbors can rerun their gate verdicts byte-for-byte on a laptop, red-team their own sandbox against real container isolation, or point at a CI badge that's actually green. That list is longer than it was the last time this cheat sheet was written, not shorter — build the talk around that, state the scope precisely (which files, which timer — §6.1, Poster Copy §5), and the hard questions become your best material.

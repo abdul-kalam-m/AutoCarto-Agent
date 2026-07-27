@@ -18,8 +18,19 @@ pinned 530-tract snapshot), not asserted.
 
 Honesty notes carried onto the figure:
   * Gate 2 (classification) is implemented and computed here.
-  * Gate 5 (colour) is specified, not yet automated — the unsafe/safe ramps are
-    shown to illustrate the failure it targets, and labelled as such.
+  * Gate 5 (colour) is now implemented too (2026-07-27) -- but running the real
+    gate against this exact figure's jet vs. YlOrBr swatches (5 classes,
+    resampled the same way _discrete() does it) found jet actually PASSES
+    Gate 5's specific check (worst adjacent-class delta-E 16.4 under
+    deuteranomaly, comfortably above the 10.0 floor). Several other
+    well-documented "bad" rainbow colormaps (gist_rainbow, hsv, nipy_spectral,
+    gist_ncar) pass too at this class count. Jet's real, well-documented flaw
+    -- non-monotonic perceptual lightness/hue, so color alone doesn't encode
+    "low to high" the way a sequential ramp does -- is a genuine cartographic
+    problem (Rogowitz & Kalvin) that Gate 5's specific metric (discrete
+    adjacent-class CVD discriminability) does not currently measure. The
+    figure says so explicitly rather than implying Gate 5 would catch this --
+    see the corrected footnote text below.
   * GVF is deliberately NOT the headline: equal-interval actually scores a
     slightly HIGHER GVF here while producing a worse map, because it isolates a
     few outliers into their own classes. The honest failure metric is class
@@ -157,8 +168,8 @@ _callout(ax_l, 0.005, 0.185,
          f"({naive_top_share:.0f}%) collapse into one class —\nspatial variation is hidden."
          "   [Gate 2]", C_BAD, "✗")
 _callout(ax_l, 0.005, 0.065,
-         "Rainbow (jet) ramp: non-monotonic lightness,\nunreadable under red–green CVD."
-         "   [Gate 5, specified]", C_BAD, "✗")
+         "Rainbow (jet) ramp: non-monotonic lightness —\ncolor alone doesn't encode low-to-high."
+         "   [not a Gate 5 finding]", C_BAD, "✗")
 
 # ── 4. Right (gated) ──────────────────────────────────────────────────────────
 _draw_map(ax_r, gated_breaks, "YlOrBr")
@@ -168,7 +179,7 @@ _callout(ax_r, 0.005, 0.185,
          "spatial structure revealed.   [Gate 2 ✓]", C_GOOD, "✓")
 _callout(ax_r, 0.005, 0.065,
          "ColorBrewer YlOrBr sequential —\nperceptually ordered, colour-blind safe."
-         "   [Gate 5, specified]", C_GOOD, "✓")
+         "   [Gate 5 ✓, passes]", C_GOOD, "✓")
 
 # ── 5. Histogram strip: WHY the breaks matter ────────────────────────────────
 ax_h.hist(v, bins=44, color="#b8c4d0", edgecolor="white", linewidth=0.4, zorder=1)
@@ -205,8 +216,9 @@ fig.text(0.5, 0.935,
          "Atlanta metro · 530 Fulton + DeKalb census tracts · real TIGER geometry · tree-canopy-loss (seeded SAR variable)",
          ha="center", va="top", fontsize=9.5, color=C_MUTE)
 fig.text(0.5, 0.040,
-         "Gate 2 (classification) is implemented and computed on this figure. Gate 5 (colour) is specified in the roadmap — "
-         "ramps shown to illustrate the failure it targets.",
+         "Gate 2 (classification) and Gate 5 (colour) are both implemented and computed on this figure. "
+         "YlOrBr passes Gate 5's CVD-discriminability check; jet's real flaw (non-monotonic perceptual "
+         "ordering) is a documented cartographic problem Gate 5's current metric does not test for.",
          ha="center", va="bottom", fontsize=7.4, color="#8a8a8a")
 fig.text(0.5, 0.020,
          "GVF is deliberately not the score here: equal-interval attains a comparable GVF "
