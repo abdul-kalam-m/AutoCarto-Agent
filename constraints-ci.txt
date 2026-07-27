@@ -9,8 +9,11 @@
 # these "verified good" versions (numpy 2.4.x / scipy 1.17.x) still
 # segfaults at the identical call site on ubuntu-latest. The real cause is
 # OpenBLAS thread-count autodetection misbehaving on the constrained CI
-# runner (see ci.yml's OPENBLAS_NUM_THREADS/OMP_NUM_THREADS fix) — a
-# threading issue, not a version-compatibility one.
+# runner — a threading issue, not a version-compatibility one. Fixed by
+# pinning BLAS to 1 thread around just that call site (see
+# scripts/_atlanta_case.py's _sar_draw); a process-wide env var fix was
+# tried first but stalled the rest of the suite instead, so the fix is
+# scoped narrowly rather than global.
 #
 # This file is kept anyway as ordinary hygiene: it stops CI from silently
 # picking up untested bleeding-edge releases, matching TD-6's "loose

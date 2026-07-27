@@ -13,17 +13,6 @@ jobs:
         os: [ubuntu-latest, windows-latest]
         python-version: ["3.12", "3.14"]
     runs-on: ${{ matrix.os }}
-    env:
-      # Force single-threaded OpenBLAS/OpenMP. The Linux runner's OpenBLAS
-      # thread-count autodetection segfaults inside scipy.linalg.solve on
-      # this runner (a known OpenBLAS/CI issue, e.g.
-      # https://github.com/OpenMathLib/OpenBLAS/issues/2993) — reproduced
-      # even on the "verified good" numpy/scipy versions pinned below, so
-      # it is a threading issue, not a version-compatibility one. The SAR
-      # draws here are small (~500x500 dense solves); single-threaded BLAS
-      # costs nothing measurable and sidesteps the crash entirely.
-      OPENBLAS_NUM_THREADS: "1"
-      OMP_NUM_THREADS: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -36,6 +25,12 @@ jobs:
         # header comment). Kept CI-only so the library stays flexible.
         run: pip install -e .[dev] -c constraints-ci.txt
       - name: Run tests
+        # timeout-minutes is a safety net: the suite finishes in ~90s
+        # locally, so anything running away this long means CI is stuck
+        # (e.g. a network call blocking without failing), not just slow.
+        # Fail loudly instead of burning runner-hours silently.
+        timeout-minutes: 10
         run: pytest
       - name: Demo smoke run (determinism harness)
+        timeout-minutes: 5
         run: python -m autocarto.demo --out ci_demo_out

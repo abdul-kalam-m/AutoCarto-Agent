@@ -15,6 +15,7 @@ from dataclasses import dataclass
 
 import numpy as np
 from scipy.linalg import solve as sp_solve
+from threadpoolctl import threadpool_limits
 
 REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 SNAPSHOT = os.path.join(REPO_ROOT, "data", "atlanta_tracts_fulton_dekalb.geojson")
@@ -38,10 +39,20 @@ class AtlantaCase:
 
 
 def _sar_draw(W: np.ndarray, rho: float, seed: int) -> np.ndarray:
-    """One SAR(rho) realisation: y = (I - rho*W)^-1 * eps."""
+    """One SAR(rho) realisation: y = (I - rho*W)^-1 * eps.
+
+    Runs the solve with BLAS pinned to 1 thread: GitHub Actions'
+    ubuntu-latest runner segfaults inside scipy.linalg.solve otherwise —
+    OpenBLAS's thread-count autodetection misbehaves on that runner's
+    constrained CPU topology (see https://github.com/OpenMathLib/OpenBLAS/issues/2993).
+    Scoped to just this call (not a process-wide env var) since forcing
+    single-threaded BLAS globally in CI was observed to stall the rest of
+    the suite instead.
+    """
     rng = np.random.default_rng(seed)
     A = np.eye(W.shape[0]) - rho * W
-    return sp_solve(A, rng.standard_normal(W.shape[0]))
+    with threadpool_limits(limits=1):
+        return sp_solve(A, rng.standard_normal(W.shape[0]))
 
 
 def build_atlanta_case(live: bool = False) -> AtlantaCase:
