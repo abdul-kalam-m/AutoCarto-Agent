@@ -1,18 +1,23 @@
 # CI dependency constraints — pin the native numeric stack to the versions
-# actually verified to pass (see environment.yml / TD-6), excluding the
+# actually verified locally (see environment.yml / TD-6), excluding the
 # bleeding-edge releases that pyproject.toml's loose `>=` bounds would
 # otherwise let CI resolve.
 #
-# Why this file exists: the first real CI run (2026-07-27) segfaulted on
-# Linux in scipy.linalg.solve because pip resolved scipy 1.18.0 + numpy
-# 2.5.1 — both released within days and mutually ABI-incompatible on the
-# GitHub runner's OpenBLAS. Windows passed; Linux core-dumped (exit 139).
-# The application code is correct (green on scipy 1.17.x / numpy 2.4.x);
-# this is purely a "loose bounds don't substitute for a lock file"
-# reproducibility gap, exactly as the Operating Manual's TD-6 note warned.
+# History: the first real CI run (2026-07-27) segfaulted on Linux in
+# scipy.linalg.solve with pip-resolved scipy 1.18.0 + numpy 2.5.1. The
+# initial hypothesis — a version-pair ABI mismatch — was WRONG: pinning to
+# these "verified good" versions (numpy 2.4.x / scipy 1.17.x) still
+# segfaults at the identical call site on ubuntu-latest. The real cause is
+# OpenBLAS thread-count autodetection misbehaving on the constrained CI
+# runner (see ci.yml's OPENBLAS_NUM_THREADS/OMP_NUM_THREADS fix) — a
+# threading issue, not a version-compatibility one.
+#
+# This file is kept anyway as ordinary hygiene: it stops CI from silently
+# picking up untested bleeding-edge releases, matching TD-6's "loose
+# bounds don't substitute for a lock file" point. It is NOT, by itself,
+# what fixes the Linux segfault.
 #
 # Kept CI-only (not in pyproject.toml) so the library itself stays
-# install-flexible for downstream users while CI reproduces a known-good
-# combination. Revisit when a newer scipy/numpy pair is verified to pass.
+# install-flexible for downstream users.
 numpy<2.5
 scipy<1.18

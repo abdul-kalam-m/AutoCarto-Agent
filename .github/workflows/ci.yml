@@ -13,6 +13,17 @@ jobs:
         os: [ubuntu-latest, windows-latest]
         python-version: ["3.12", "3.14"]
     runs-on: ${{ matrix.os }}
+    env:
+      # Force single-threaded OpenBLAS/OpenMP. The Linux runner's OpenBLAS
+      # thread-count autodetection segfaults inside scipy.linalg.solve on
+      # this runner (a known OpenBLAS/CI issue, e.g.
+      # https://github.com/OpenMathLib/OpenBLAS/issues/2993) — reproduced
+      # even on the "verified good" numpy/scipy versions pinned below, so
+      # it is a threading issue, not a version-compatibility one. The SAR
+      # draws here are small (~500x500 dense solves); single-threaded BLAS
+      # costs nothing measurable and sidesteps the crash entirely.
+      OPENBLAS_NUM_THREADS: "1"
+      OMP_NUM_THREADS: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
