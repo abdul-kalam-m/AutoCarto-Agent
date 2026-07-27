@@ -33,12 +33,28 @@ retrieval = ["qdrant-client>=1.8"]
 embeddings = ["sentence-transformers>=3.0"]
 geo = ["geopandas>=0.14", "libpysal>=4.9"]
 dev = ["pytest>=8", "esda>=2.5"]
+# The one gap between ALLOWED_IMPORTS (execution/sandbox.py) and the rest of
+# the dependency graph: cartopy is whitelisted for sandboxed code to import
+# but nothing else in this project needs it (TD-6 removed it from
+# environment.yml as unused). Kept as its own extra, installed only in the
+# sandbox image, so the whitelist and what the image can actually run stay
+# reconciled without adding cartopy to every other install.
+sandbox = ["cartopy>=0.22"]
 
 [project.scripts]
 autocarto = "autocarto.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+# setuptools only includes .py files by default; the five curated
+# stylesheets (P1-T7) are runtime data resolve_style() reads by path, not
+# imported as code, so they need to be listed explicitly or a real (non
+# -e) wheel install silently ships without them -- found while building
+# the sandbox image (Phase 5), which is the first non-editable install
+# this project has ever actually run.
+"autocarto.styles" = ["*.mplstyle"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -338,20 +338,27 @@ class SandboxExecutor:
                 "--network=none",
                 "--memory=512m",
                 "--memory-swap=512m",
+                # cap-drop=ALL/no-new-privileges do not gate fork() -- a
+                # trivial `while True: os.fork()` fork bomb is not a
+                # capability-restricted operation, so it is otherwise
+                # unconstrained. Found while building the Phase 5 red-team
+                # suite (Manual §10); 64 is generous for legitimate
+                # single-script numeric code (headroom for BLAS/OpenMP
+                # worker threads, which count against this too) while
+                # still bounding a fork bomb to a fixed, small cost.
+                "--pids-limit=64",
                 "--read-only",
                 "--tmpfs", "/tmp:size=100m,noexec",
                 "--security-opt=no-new-privileges",
                 "--cap-drop=ALL",
                 "--rm",
-                # TD-9: style is applied runner-side via an env var the
-                # container entrypoint reads and passes to
-                # matplotlib.style.use(...) before running exec.py — the
-                # code in exec.py never sets its own style. NOTE: this env
-                # var is unconsumed today because no container image or
-                # entrypoint script exists yet (Manual TD-5, still open);
-                # wiring it here documents the intended contract for when
-                # Dockerfile.sandbox ships, it does not itself make Docker
-                # execution work.
+                # TD-9: style is applied runner-side via an env var
+                # Dockerfile.sandbox's sitecustomize.py reads and passes to
+                # matplotlib.style.use(...) before exec.py runs -- exec.py's
+                # own text never mentions a style. Verified end-to-end
+                # against the built image (Phase 5): a script that only
+                # reads matplotlib.rcParams, with no style-related code of
+                # its own, observes the resolved style's values.
                 "-e", f"AUTOCARTO_MPLSTYLE_PATH={self._resolve_runtime_style()}",
                 "-v", f"{tmpdir}:/workspace:ro",
                 "autocarto-sandbox:latest",

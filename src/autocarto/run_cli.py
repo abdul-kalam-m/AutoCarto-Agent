@@ -25,6 +25,12 @@ def _build_llm(kind: str, model: str | None):
         from autocarto.semantic.llm_client import MockLLM
         return MockLLM(), "mock", "deterministic-rule-based"
     if kind == "nvidia":
+        from autocarto.offline import OfflineModeViolation, is_offline
+        if is_offline():
+            raise OfflineModeViolation(
+                "--llm nvidia makes real network calls, which AUTOCARTO_OFFLINE=1 "
+                "forbids. Use --llm mock (the default), or unset AUTOCARTO_OFFLINE."
+            )
         from autocarto.semantic.nvidia_llm import NvidiaLLM
         llm = NvidiaLLM(model=model) if model else NvidiaLLM()
         return llm, "nvidia", llm.model

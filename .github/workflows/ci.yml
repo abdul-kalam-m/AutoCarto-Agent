@@ -34,3 +34,42 @@ jobs:
       - name: Demo smoke run (determinism harness)
         timeout-minutes: 5
         run: python -m autocarto.demo --out ci_demo_out
+
+  gvisor-security:
+    # Phase 5 / TD-5 (Manual §10, §11): the only place the red-team suite's
+    # 27 escape vectors (tests/security/test_escapes.py) actually run --
+    # everywhere else they skip cleanly, since gVisor is Linux-only and
+    # this is the one place it's set up. Separate job (not folded into
+    # `test` above) so a real security-boundary failure is never masked
+    # by, or dependent on, the application-correctness matrix, and so it
+    # doesn't slow that matrix down (runs in parallel, no `needs:`).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install gVisor (runsc)
+        run: |
+          set -e
+          ARCH=$(uname -m)
+          URL="https://storage.googleapis.com/gvisor/releases/release/latest/${ARCH}"
+          wget -q "${URL}/runsc" "${URL}/runsc.sha512"
+          sha512sum -c runsc.sha512
+          rm -f runsc.sha512
+          chmod a+rx runsc
+          sudo mv runsc /usr/local/bin/
+          sudo /usr/local/bin/runsc install
+          sudo systemctl restart docker
+      - name: Verify runsc is registered with the Docker daemon
+        run: docker info | grep -i runsc
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install package
+        # Only the test harness needs this -- the sandboxed code under
+        # test runs inside autocarto-sandbox:latest, built below, which
+        # has its own independent, pinned install.
+        run: pip install -e .[dev] -c constraints-ci.txt
+      - name: Build autocarto-sandbox image
+        run: docker build -f Dockerfile.sandbox -t autocarto-sandbox:latest .
+      - name: Run the red-team suite
+        timeout-minutes: 10
+        run: pytest tests/security/test_escapes.py -v

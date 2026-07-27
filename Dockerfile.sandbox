@@ -1,0 +1,85 @@
+# Dockerfile.sandbox -- builds autocarto-sandbox:latest, the image
+# SandboxExecutor(backend="docker") runs LLM-generated code inside (see
+# src/autocarto/execution/sandbox.py's _execute_docker and
+# Fable Review/01_OPERATING_MANUAL.md §10).
+#
+# Security model: this image is NOT itself the security boundary. The
+# boundary is the combination of the docker run flags _execute_docker
+# already constructs (--network=none, --read-only, --cap-drop=ALL,
+# --security-opt=no-new-privileges, --pids-limit, --runtime=runsc) plus
+# this image being minimal: non-root, no shell, nothing installed beyond
+# what ALLOWED_IMPORTS actually whitelists. A kernel exploit or gVisor
+# escape is still possible in principle; this image removes the cheap,
+# no-exploit-needed wins (a shell to pivot from, root to work around
+# --read-only, package managers to fetch more tools).
+
+FROM python:3.12-slim-bookworm AS builder
+
+# Build-only stage: full toolchain + geo headers to compile any wheel that
+# isn't available prebuilt for this platform/Python combination. None of
+# this reaches the final image.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        libgeos-dev \
+        libproj-dev \
+        proj-data \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+COPY pyproject.toml constraints-ci.txt ./
+COPY src/ ./src/
+
+# -c constraints-ci.txt: reuse the exact numpy/scipy versions already
+# verified not to segfault on Linux CI (see that file's header -- the same
+# OpenBLAS-on-constrained-runner issue applies here, same fix).
+# [geo,sandbox]: geopandas/libpysal (existing extra) + cartopy (the one
+# ALLOWED_IMPORTS gap -- see pyproject.toml's [sandbox] extra comment).
+RUN pip install --no-cache-dir --prefix=/install \
+        ".[geo,sandbox]" -c constraints-ci.txt
+
+FROM python:3.12-slim-bookworm
+
+# Runtime shared libraries cartopy/pyproj's compiled extensions link
+# against (shapely/pyproj wheels bundle their own GEOS/PROJ statically;
+# cartopy's does not) -- runtime .so packages only, no -dev/no compiler.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libgeos-c1v5 \
+        libproj25 \
+        proj-data \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /install /usr/local
+
+# Runner-side style injection (TD-9's contract, container variant): dropped
+# into site-packages so Python auto-imports it before exec.py runs (the
+# `site` module's standard sitecustomize.py behavior) -- no wrapper
+# entrypoint, exec.py's text never mentions a style. See the file itself.
+COPY docker/sandbox_runtime/sitecustomize.py /usr/local/lib/python3.12/site-packages/sitecustomize.py
+
+# Non-root: removes the option of root-only escalation paths even before
+# --cap-drop=ALL/--security-opt=no-new-privileges are considered.
+RUN groupadd -r sandbox && useradd -r -g sandbox -M -s /usr/sbin/nologin sandbox
+
+# No shell: removed after every setup step that might need one is done.
+# _execute_docker invokes ["python", "/workspace/exec.py"] directly
+# (list-form docker run args, no shell indirection), so nothing at
+# runtime needs /bin/sh -- if a compromised process ever tries to spawn
+# one anyway, there is nothing here to spawn.
+RUN rm -f /bin/sh /bin/bash /bin/dash /usr/bin/sh /usr/bin/bash /usr/bin/dash
+
+# The sandbox user has no home directory (-M above) and the container's
+# root filesystem is read-only at runtime, so matplotlib's default
+# ~/.config/matplotlib cache path is never writable -- it silently retries
+# into a tmp dir, but the failed attempt prints a stderr warning on every
+# single execution, needlessly noisy in SandboxResult.stderr. Point it at
+# the one writable location that actually exists at runtime (--tmpfs /tmp).
+ENV MPLCONFIGDIR=/tmp/matplotlib-config
+
+USER sandbox
+WORKDIR /workspace
+
+# _execute_docker always supplies the real command
+# ("python", "/workspace/exec.py") as docker run's trailing args, which
+# overrides CMD -- this default only matters for a bare
+# `docker run autocarto-sandbox:latest` with no args (manual smoke test).
+CMD ["python3", "-c", "print('autocarto-sandbox image ready')"]

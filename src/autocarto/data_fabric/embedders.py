@@ -32,6 +32,13 @@ class SentenceTransformerEmbedder:
     """
 
     def __init__(self, model_name: str = DEFAULT_MODEL):
+        from autocarto.offline import OfflineModeViolation, is_offline
+        if is_offline():
+            raise OfflineModeViolation(
+                "SentenceTransformerEmbedder downloads model weights on first "
+                "use, which AUTOCARTO_OFFLINE=1 forbids. Use the deterministic "
+                "hash-embedding fallback instead: HybridRetrieval(embedder=None)."
+            )
         try:
             from sentence_transformers import SentenceTransformer
         except ImportError as exc:
