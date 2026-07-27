@@ -445,6 +445,19 @@ class MockQdrantClient:
         next_offset = end if end < len(matches) else None
         return page, next_offset
 
+    def retrieve(self, collection_name, ids, with_payload=True):
+        """PATCH (P3-T2): fetch payloads for a known set of IDs, the
+        capability real Qdrant clients expose as ``.retrieve()`` and that
+        ``HybridRetrieval._exact_refine`` needs to see each candidate's
+        stored ``geometry`` (if any) for exact intersection testing.
+        """
+        by_id = {item["id"]: item for item in self.items}
+        return [
+            _MockHit(item_id, by_id[item_id]["payload"], score=0.0)
+            for item_id in ids
+            if item_id in by_id
+        ]
+
     def search(self, collection_name, query_vector, query_filter, limit, with_payload):
         allowed_ids = None
         clauses = getattr(query_filter, "must", None) or query_filter["must"]

@@ -90,6 +90,10 @@ def test_benchmark_report_is_deterministic(tmp_path):
     r1 = build_report()
     r2 = build_report()
     assert r1 == r2
-    assert r1["summary"]["total_scenarios"] == (
-        r1["corpus"]["gate2_scenarios"] + r1["corpus"]["gate3b_scenarios"]
+    # P4-T2: corpus now covers all six gates (G1/G5 counts may be 0 if
+    # their optional deps -- geopandas, colorspacious -- aren't installed
+    # in a given environment; the total must still reconcile exactly).
+    corpus = r1["corpus"]
+    assert r1["summary"]["total_scenarios"] == sum(
+        corpus[f"gate{g}_scenarios"] for g in ("1", "2", "3a", "3b", "4", "5")
     )

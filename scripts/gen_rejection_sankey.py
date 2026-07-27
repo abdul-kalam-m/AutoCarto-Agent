@@ -44,7 +44,11 @@ os.makedirs(_args.out, exist_ok=True)
 mpl.rcParams.update({"pdf.fonttype": 42, "ps.fonttype": 42, "savefig.dpi": 300})
 
 # ── 1. Aggregate real flows from the benchmark ────────────────────────────────
-S = build_report()["scenarios"]
+# PATCH (P4-T2): build_report() now also carries G1/G3a/G4/G5 scenarios
+# (the corpus expanded from 2 to 6 gates). This figure's design is
+# specifically the G2/G3b two-gate flow (already printed on the poster,
+# STDS 2026) -- filter to those two rather than redesign a shipped asset.
+S = [s for s in build_report()["scenarios"] if s["gate"] in ("G2", "G3b")]
 N = len(S)
 
 g2_pass = sum(s["gate"] == "G2" and s["outcome"] == "PASS" for s in S)

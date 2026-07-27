@@ -15,6 +15,7 @@ BLESSED_TRACES = REPO_ROOT / "output" / "traces"
 TIMING_KEYS = {
     "retrieval_time_ms",
     "spatial_filter_time_ms",
+    "exact_refine_time_ms",  # P3-T2: exact-geometry refinement stage timing
     "semantic_search_time_ms",
     "execution_time_ms",
 }

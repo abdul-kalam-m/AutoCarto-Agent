@@ -25,14 +25,31 @@ from typing import Any, Dict, List
 
 import numpy as np
 
+from autocarto.execution.gates.gate1_crs import CRSIntegrityGate
 from autocarto.execution.gates.gate2_classification import (
     ClassificationDiagnosticEngine,
     _dedupe_breaks,
 )
+from autocarto.execution.gates.gate3a_spatial_autocorrelation import SpatialStructureGate
 from autocarto.execution.gates.gate3b_bivariate_correlation import (
     BivariateCorrelationGate,
 )
+from autocarto.execution.gates.gate4_projection_distortion import ProjectionDistortionGate
+from autocarto.execution.gates.gate5_color_accessibility import ColorAccessibilityGate
 from autocarto.demo import make_grid_polygons, spatial_autoregressive
+
+try:
+    import geopandas as gpd
+    from shapely.geometry import box
+    HAS_GEOPANDAS = True
+except ImportError:
+    HAS_GEOPANDAS = False
+
+try:
+    import colorspacious  # noqa: F401
+    HAS_COLORSPACIOUS = True
+except ImportError:
+    HAS_COLORSPACIOUS = False
 
 # ----------------------------------------------------------------------
 # Corpus definition (fixed; documented in the report)
@@ -40,9 +57,12 @@ from autocarto.demo import make_grid_polygons, spatial_autoregressive
 N_TRACTS = 243                 # census-tract-scale scenario size (demo convention)
 GATE2_SEEDS = [11, 12, 13]     # three independent draws per regime
 GATE3B_SEEDS = [21, 22, 23]
+GATE3A_SEEDS = [31, 32, 33]
 GRID_ROWS, GRID_COLS = 16, 16  # queen-contiguity lattice for SAR scenarios
 PERMUTATIONS = 199
 PERMUTATION_SEED = 7           # matches the demo's Gate-3b seed
+CONUS_BOUNDS_4326 = (-125.0, 24.5, -66.9, 49.4)
+GA_BOUNDS_4326 = (-85.6, 30.4, -80.8, 35.0)
 
 
 def _gen_well_behaved(rng: np.random.Generator) -> np.ndarray:
@@ -166,10 +186,170 @@ def run_gate3b_scenarios() -> List[Dict[str, Any]]:
     return results
 
 
+# ----------------------------------------------------------------------
+# Gate 1 (CRS integrity) scenarios
+# ----------------------------------------------------------------------
+# Naive policy: "the LLM assumes the source CRS is fine and proposes no
+# reprojection, regardless of variable role" -- the realistic default for
+# an LLM that has never seen a coordinate reference system fail silently.
+GATE1_REGIMES = {
+    # (crs_epsg, variable_role, map_type) -> expected decision
+    "geographic_density": (4326, "density", "REJECT"),
+    "geographic_ordinal": (4326, "ordinal", "PASS"),  # no area computation needed
+    "equal_area_density": (5070, "density", "PASS"),
+}
+
+
+def run_gate1_scenarios() -> List[Dict[str, Any]]:
+    if not HAS_GEOPANDAS:
+        return []
+    results = []
+    gate = CRSIntegrityGate()
+    cells = [box(i, j, i + 1, j + 1) for i in range(4) for j in range(4)]
+    for regime, (epsg, role, expected) in GATE1_REGIMES.items():
+        gdf = gpd.GeoDataFrame({"geometry": cells}, crs=f"EPSG:{epsg}")
+        res = gate.evaluate(gdf, "choropleth", role)
+        results.append({
+            "gate": "G1",
+            "regime": regime,
+            "seed": None,
+            "naive_proposal": f"no_reprojection(epsg={epsg})",
+            "outcome": res.decision,
+            "expected": expected,
+            "correct": res.decision == expected,
+            "prescribed_method": res.prescription.method if res.prescription else None,
+        })
+    return results
+
+
+# ----------------------------------------------------------------------
+# Gate 3a (univariate Moran's I) scenarios
+# ----------------------------------------------------------------------
+# Naive policy: "the LLM always proposes a choropleth, regardless of
+# whether the variable has any spatial structure."
+GATE3A_REGIMES = {
+    "sar_clustered": "PASS",       # rho=0.8 SAR field -- real positive structure
+    "white_noise": "REJECT",       # NEGATIVE CONTROL: no spatial structure exists;
+                                    # no re-proposal can ever fix this -- REJECT is
+                                    # permanently correct, not a proposal defect.
+    "sar_dispersed": "PASS",       # rho=-0.6 SAR field -- real NEGATIVE structure.
+                                    # NOTE: an earlier version of this regime used a
+                                    # hand-built (i+j)%2 checkerboard pattern, which
+                                    # is only strongly dispersed under ROOK
+                                    # contiguity. make_grid_polygons here uses QUEEN
+                                    # contiguity (8-neighbor incl. diagonals), under
+                                    # which a checkerboard's 4 diagonal neighbors
+                                    # share its OWN sign -- measured I=-0.049,
+                                    # p=0.16 (indistinguishable from noise), not the
+                                    # I=-1.0 a rook-contiguity unit test showed. A
+                                    # negative-rho SAR draw is adjacency-agnostic and
+                                    # reliably dispersed under any W (verified: PASS,
+                                    # I in [-0.14,-0.11], all 3 seeds).
+}
+
+
+def run_gate3a_scenarios() -> List[Dict[str, Any]]:
+    _, W, _ = make_grid_polygons(GRID_ROWS, GRID_COLS)
+    gate = SpatialStructureGate()
+    results = []
+    for regime, expected in GATE3A_REGIMES.items():
+        for seed in GATE3A_SEEDS:
+            if regime == "sar_clustered":
+                x = spatial_autoregressive(W, rho=0.8, seed=seed)
+            elif regime == "white_noise":
+                x = np.random.default_rng(seed).normal(size=W.shape[0])
+            else:  # sar_dispersed
+                x = spatial_autoregressive(W, rho=-0.6, seed=seed)
+            res = gate.evaluate(x, W, permutations=PERMUTATIONS, random_state=PERMUTATION_SEED)
+            results.append({
+                "gate": "G3a",
+                "regime": regime,
+                "seed": seed,
+                "naive_proposal": "choropleth",
+                "outcome": res.decision,
+                "expected": expected,
+                "correct": res.decision == expected,
+                "morans_i": res.diagnostics.get("morans_i"),
+                "p_value": res.diagnostics.get("p_value"),
+            })
+    return results
+
+
+# ----------------------------------------------------------------------
+# Gate 4 (Tissot projection distortion) scenarios
+# ----------------------------------------------------------------------
+# Naive policy: "the LLM always proposes Web Mercator for any US-scale
+# area-comparison map" -- the single most common real-world cartographic
+# mistake (Web Mercator is the default in nearly every web mapping
+# library, and is badly wrong for area comparison at CONUS scale).
+GATE4_REGIMES = {
+    "conus_webmerc": (3857, CONUS_BOUNDS_4326, "REJECT"),
+    "conus_albers": (5070, CONUS_BOUNDS_4326, "PASS"),
+    "georgia_webmerc": (3857, GA_BOUNDS_4326, "REJECT"),
+    "georgia_albers": (5070, GA_BOUNDS_4326, "PASS"),
+}
+
+
+def run_gate4_scenarios() -> List[Dict[str, Any]]:
+    results = []
+    gate = ProjectionDistortionGate()
+    for regime, (epsg, bounds, expected) in GATE4_REGIMES.items():
+        res = gate.evaluate(epsg, bounds, map_purpose="area_comparison", graticule_resolution=8)
+        results.append({
+            "gate": "G4",
+            "regime": regime,
+            "seed": None,
+            "naive_proposal": f"epsg_{epsg}",
+            "outcome": res.decision,
+            "expected": expected,
+            "correct": res.decision == expected,
+            "max_areal_exaggeration": res.diagnostics.get("max_areal_exaggeration"),
+        })
+    return results
+
+
+# ----------------------------------------------------------------------
+# Gate 5 (color accessibility) scenarios
+# ----------------------------------------------------------------------
+# Naive policy: "the LLM always proposes a visually striking diverging
+# palette (red-yellow-green) without checking colorblind safety."
+_RDYLGN = ["#d73027", "#fc8d59", "#fee08b", "#d9ef8b", "#91cf60", "#1a9850"]
+_YLORRD_SAFE = ["#ffffb2", "#fecc5c", "#fd8d3c", "#f03b20", "#bd0026"]
+
+GATE5_REGIMES = {
+    "rdylgn_diverging": (_RDYLGN, True, "REJECT"),
+    "colorbrewer_sequential": (_YLORRD_SAFE, False, "PASS"),
+}
+
+
+def run_gate5_scenarios() -> List[Dict[str, Any]]:
+    if not HAS_COLORSPACIOUS:
+        return []
+    results = []
+    gate = ColorAccessibilityGate()
+    for regime, (palette, diverging, expected) in GATE5_REGIMES.items():
+        res = gate.evaluate(palette, diverging=diverging)
+        results.append({
+            "gate": "G5",
+            "regime": regime,
+            "seed": None,
+            "naive_proposal": "diverging_palette" if diverging else "sequential_palette",
+            "outcome": res.decision,
+            "expected": expected,
+            "correct": res.decision == expected,
+            "worst_delta_e": res.diagnostics.get("worst_delta_e"),
+        })
+    return results
+
+
 def build_report() -> Dict[str, Any]:
+    g1 = run_gate1_scenarios()
     g2 = run_gate2_scenarios()
+    g3a = run_gate3a_scenarios()
     g3b = run_gate3b_scenarios()
-    all_results = g2 + g3b
+    g4 = run_gate4_scenarios()
+    g5 = run_gate5_scenarios()
+    all_results = g1 + g2 + g3a + g3b + g4 + g5
 
     n = len(all_results)
     rejected = [r for r in all_results if r["outcome"] == "REJECT"]
@@ -177,7 +357,7 @@ def build_report() -> Dict[str, Any]:
 
     by_cause: Dict[str, int] = {}
     for r in rejected:
-        cause = r.get("diagnosis") or "no_spatial_cross_correlation"
+        cause = r.get("diagnosis") or f"{r['gate']}:{r['regime']}"
         by_cause[cause] = by_cause.get(cause, 0) + 1
 
     # Ground-truth classes. "Borderline" (weak coupling) is genuinely ambiguous
@@ -197,31 +377,49 @@ def build_report() -> Dict[str, Any]:
     # is the documented free-permutation null-model limitation; see R-2).
     notable_misses = [
         {k: r.get(k) for k in ("gate", "regime", "seed", "outcome", "expected",
-                               "diagnosis", "bivariate_morans_i",
-                               "bivariate_morans_p", "spearman_rho") if k in r}
+                               "diagnosis", "bivariate_morans_i", "bivariate_morans_p",
+                               "spearman_rho", "morans_i", "p_value",
+                               "max_areal_exaggeration", "worst_delta_e",
+                               "prescribed_method") if k in r}
         for r in strict if not r["correct"]
     ]
 
     return {
         "benchmark": "autocarto-mini-benchmark",
-        "version": 2,
+        "version": 3,
         "corpus": {
             "description": (
                 "Seeded synthetic corpus with KNOWN ground-truth outcomes, so the "
                 "validator's DECISION CORRECTNESS can be scored (not just a raw "
-                "rejection tally). Deliberately adversarial: 4 of 5 Gate-2 regimes "
-                "and 1 of 3 Gate-3b regimes are pathological by construction, so "
-                "the rejection rate is high BY DESIGN and is only meaningful "
-                "alongside this composition. Gate 2: 5 distribution regimes x 3 "
-                "seeds, naive policy = Fisher-Jenks with quintile breaks. Gate 3b: "
-                "3 spatial-coupling regimes x 3 seeds on a 16x16 queen lattice, "
-                "naive policy = always propose bivariate encoding."
+                "rejection tally), now covering all six gates (v3; v2 covered only "
+                "G2/G3b). Deliberately adversarial where noted, so the rejection "
+                "rate is high BY DESIGN and is only meaningful alongside this "
+                "composition. G1: 3 CRS/role regimes (no seed -- deterministic "
+                "geometry). G2: 5 distribution regimes x 3 seeds, naive policy = "
+                "Fisher-Jenks with quintile breaks. G3a: 3 spatial-structure "
+                "regimes x 3 seeds on a 16x16 queen lattice, naive policy = always "
+                "propose a choropleth regardless of structure -- 'white_noise' is a "
+                "NEGATIVE CONTROL (no spatial structure exists; REJECT is "
+                "permanently correct, not a fixable proposal defect). G3b: 3 "
+                "spatial-coupling regimes x 3 seeds, naive policy = always propose "
+                "bivariate encoding -- 'independent' is the same kind of negative "
+                "control. G4: 4 CRS/AOI regimes (no seed), naive policy = always "
+                "propose Web Mercator. G5: 2 palette regimes (no seed), naive "
+                "policy = always propose a red-yellow-green diverging palette."
             ),
+            "gate1_scenarios": len(g1),
             "gate2_scenarios": len(g2),
+            "gate3a_scenarios": len(g3a),
             "gate3b_scenarios": len(g3b),
+            "gate4_scenarios": len(g4),
+            "gate5_scenarios": len(g5),
             "total": n,
-            "seeds": {"gate2": GATE2_SEEDS, "gate3b": GATE3B_SEEDS,
+            "seeds": {"gate2": GATE2_SEEDS, "gate3a": GATE3A_SEEDS, "gate3b": GATE3B_SEEDS,
                       "permutation": PERMUTATION_SEED},
+            "optional_gates_skipped_if_deps_missing": {
+                "gate1_requires": "geopandas (extra: geo)",
+                "gate5_requires": "colorspacious (core dependency as of 2026-07-27)",
+            },
         },
         "summary": {
             "total_scenarios": n,

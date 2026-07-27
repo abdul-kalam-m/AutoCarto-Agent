@@ -30,6 +30,7 @@ dependencies = [
 
 [project.optional-dependencies]
 retrieval = ["qdrant-client>=1.8"]
+embeddings = ["sentence-transformers>=3.0"]
 geo = ["geopandas>=0.14", "libpysal>=4.9"]
 dev = ["pytest>=8", "esda>=2.5"]
 

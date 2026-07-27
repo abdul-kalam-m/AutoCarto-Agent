@@ -1,5 +1,5 @@
 AutoCarto-Agent demo harness
-timestamp: 2026-05-24 03:26:56Z
+timestamp: 2026-07-27 05:47:14Z
 python: 3.14.3, numpy: 2.4.2
 
 === Gate 2: Classification Diagnostic Engine ===
@@ -36,4 +36,4 @@ python: 3.14.3, numpy: 2.4.2
   OK       docstring_mentions_subprocess    sanitize=True violations=0 exec=True
   -> trace : traces\sandbox_trace.json
 
-Total wall-clock: 845.3 ms
+Total wall-clock: 5205.1 ms

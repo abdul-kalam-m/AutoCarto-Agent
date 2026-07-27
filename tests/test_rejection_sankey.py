@@ -1,8 +1,12 @@
 """Flow-conservation regression for the F-NEW-3 rejection Sankey.
 
-The Sankey is driven by autocarto.benchmark.build_report(); these tests pin the
-aggregation invariants the diagram draws, so a change to the benchmark that
-would silently invalidate the figure fails here instead. Core deps only.
+The Sankey is driven by autocarto.benchmark.build_report(), filtered to
+G2/G3b (scripts/gen_rejection_sankey.py) -- the printed poster figure's
+design is specifically that two-gate flow, even though build_report()'s
+corpus expanded to six gates (P4-T2). These tests pin the aggregation
+invariants the diagram draws over that same G2/G3b subset, so a change to
+the benchmark that would silently invalidate the figure fails here
+instead. Core deps only.
 """
 
 from __future__ import annotations
@@ -20,7 +24,8 @@ VALID_G2_METHODS = {
 
 
 def _agg():
-    S = build_report()["scenarios"]
+    # Matches scripts/gen_rejection_sankey.py's own filter exactly.
+    S = [s for s in build_report()["scenarios"] if s["gate"] in ("G2", "G3b")]
     g2 = [s for s in S if s["gate"] == "G2"]
     g3b = [s for s in S if s["gate"] == "G3b"]
     return S, g2, g3b

@@ -5,15 +5,17 @@
       "geometry_type": "Polygon",
       "result": {
         "spatial_candidates": 3,
+        "envelope_candidates": 3,
         "semantic_results": 3,
         "items": [
           "atl-canopy",
           "atl-noise",
           "cdc-asthma"
         ],
-        "retrieval_time_ms": 0.953,
-        "spatial_filter_time_ms": 0.401,
-        "semantic_search_time_ms": 0.52
+        "retrieval_time_ms": 2529.15,
+        "spatial_filter_time_ms": 2444.737,
+        "exact_refine_time_ms": 83.347,
+        "semantic_search_time_ms": 1.009
       },
       "items_detail": [
         {
@@ -38,14 +40,16 @@
       "geometry_type": "Polygon",
       "result": {
         "spatial_candidates": 2,
+        "envelope_candidates": 2,
         "semantic_results": 2,
         "items": [
           "nyc-vision-zero",
           "cdc-asthma"
         ],
-        "retrieval_time_ms": 0.614,
-        "spatial_filter_time_ms": 0.224,
-        "semantic_search_time_ms": 0.377
+        "retrieval_time_ms": 0.463,
+        "spatial_filter_time_ms": 0.09,
+        "exact_refine_time_ms": 0.079,
+        "semantic_search_time_ms": 0.273
       },
       "items_detail": [
         {
@@ -65,14 +69,16 @@
       "geometry_type": "Polygon",
       "result": {
         "spatial_candidates": 2,
+        "envelope_candidates": 2,
         "semantic_results": 2,
         "items": [
           "aleutian-seabird-east",
           "aleutian-seabird-west"
         ],
-        "retrieval_time_ms": 0.763,
-        "spatial_filter_time_ms": 0.398,
-        "semantic_search_time_ms": 0.354
+        "retrieval_time_ms": 2.603,
+        "spatial_filter_time_ms": 0.065,
+        "exact_refine_time_ms": 1.304,
+        "semantic_search_time_ms": 1.187
       },
       "items_detail": [
         {

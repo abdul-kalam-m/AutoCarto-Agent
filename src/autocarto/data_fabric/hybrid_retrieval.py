@@ -30,6 +30,13 @@ class STACItem:
     collection: str = ""
     assets: Dict[str, Any] = field(default_factory=dict)
     metadata_score: int = 0
+    # PATCH (P3-T2, exact refinement): the actual footprint polygon, when the
+    # catalog has one. Bbox-only items (geometry=None) get envelope-level
+    # assurance only -- see HybridRetrieval._exact_refine.
+    geometry: Optional[Dict[str, Any]] = None
+    # PATCH (P3-T3, metadata scorer): two of the 7-point rubric criteria.
+    license: Optional[str] = None
+    lineage: Optional[str] = None
 
     def to_llm_context(self) -> str:
         """Format item metadata for LLM selection prompt."""
@@ -52,20 +59,28 @@ class STACItem:
 @dataclass
 class RetrievalResult:
     """Output from hybrid retrieval."""
-    spatial_candidates: int       # Items passing Stage 1
+    spatial_candidates: int       # Items passing Stage 1 + exact refinement (true candidates)
     semantic_results: int         # Items returned from Stage 2
     items: List[STACItem]
     retrieval_time_ms: float
     spatial_filter_time_ms: float
     semantic_search_time_ms: float
+    # PATCH (P3-T2): envelope-only count before exact refinement, so callers
+    # can see the refinement's effect explicitly. Equal to spatial_candidates
+    # when no candidate carries real geometry (nothing to refine against) or
+    # when the client doesn't support fetching payloads by ID.
+    envelope_candidates: int = 0
+    exact_refine_time_ms: float = 0.0
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "spatial_candidates": self.spatial_candidates,
+            "envelope_candidates": self.envelope_candidates,
             "semantic_results": self.semantic_results,
             "items": [item.id for item in self.items],
             "retrieval_time_ms": round(self.retrieval_time_ms, 3),
             "spatial_filter_time_ms": round(self.spatial_filter_time_ms, 3),
+            "exact_refine_time_ms": round(self.exact_refine_time_ms, 3),
             "semantic_search_time_ms": round(self.semantic_search_time_ms, 3),
         }
 
@@ -133,12 +148,13 @@ class HybridRetrieval:
         spatial_ids_set: set = set()
         for bbox in bboxes:
             spatial_ids_set.update(self._spatial_filter(bbox))
-        spatial_ids = list(spatial_ids_set)
+        envelope_ids = list(spatial_ids_set)
         t_spatial = (time.time() - t_spatial_start) * 1000
 
-        if not spatial_ids:
+        if not envelope_ids:
             return RetrievalResult(
                 spatial_candidates=0,
+                envelope_candidates=0,
                 semantic_results=0,
                 items=[],
                 retrieval_time_ms=(time.time() - t_start) * 1000,
@@ -146,7 +162,27 @@ class HybridRetrieval:
                 semantic_search_time_ms=0.0,
             )
 
-        # Stage 2: Semantic ranking within spatial subset
+        # Stage 1.5: exact geometric refinement (C7' -- envelope overlap is
+        # necessary, not sufficient). Runs *before* semantic ranking so
+        # every semantically-ranked candidate has already been confirmed to
+        # truly intersect the AOI, not just its bounding box.
+        t_refine_start = time.time()
+        spatial_ids = self._exact_refine(envelope_ids, target_geometry)
+        t_refine = (time.time() - t_refine_start) * 1000
+
+        if not spatial_ids:
+            return RetrievalResult(
+                spatial_candidates=0,
+                envelope_candidates=len(envelope_ids),
+                semantic_results=0,
+                items=[],
+                retrieval_time_ms=(time.time() - t_start) * 1000,
+                spatial_filter_time_ms=t_spatial,
+                exact_refine_time_ms=t_refine,
+                semantic_search_time_ms=0.0,
+            )
+
+        # Stage 2: Semantic ranking within the refined spatial subset
         t_semantic_start = time.time()
         results = self._semantic_search(query_text, spatial_ids, top_k)
         t_semantic = (time.time() - t_semantic_start) * 1000
@@ -156,12 +192,70 @@ class HybridRetrieval:
 
         return RetrievalResult(
             spatial_candidates=len(spatial_ids),
+            envelope_candidates=len(envelope_ids),
             semantic_results=len(items),
             items=items,
             retrieval_time_ms=(time.time() - t_start) * 1000,
             spatial_filter_time_ms=t_spatial,
+            exact_refine_time_ms=t_refine,
             semantic_search_time_ms=t_semantic,
         )
+
+    def _exact_refine(self, envelope_ids: List[str], target_geometry: Dict[str, Any]) -> List[str]:
+        """Stage 1.5: drop envelope-only false positives via true polygon
+        intersection (shapely.STRtree), per the abstract's C7' claim.
+
+        Fetches each Stage-1 candidate's payload (for its ``geometry``
+        field, if any) via ``self.client.retrieve(...)``. An item with no
+        stored footprint (``geometry`` absent/None) passes through
+        unfiltered -- envelope overlap is the best assurance available for
+        it, and that is honestly what the trace should say (see
+        ``envelope_candidates`` vs ``spatial_candidates`` on the result).
+        If the client does not support ``.retrieve()`` at all (a minimal
+        mock, or an older Qdrant client), refinement is skipped entirely
+        and every envelope candidate passes through -- degrading to the
+        pre-P3-T2 behavior rather than raising.
+        """
+        try:
+            records = self.client.retrieve(
+                collection_name=self.collection_name, ids=envelope_ids, with_payload=True,
+            )
+        except (AttributeError, TypeError):
+            return envelope_ids  # client has no by-ID payload fetch -- can't refine
+
+        import shapely.geometry
+        from shapely.strtree import STRtree
+
+        try:
+            aoi_shape = shapely.geometry.shape(target_geometry)
+        except Exception:
+            return envelope_ids  # malformed AOI geometry -- refinement is a no-op, not a crash
+
+        geometried: List[Any] = []
+        geometried_ids: List[str] = []
+        passthrough_ids: List[str] = []
+
+        for rec in records:
+            rec_id = getattr(rec, "id", None) if not isinstance(rec, dict) else rec.get("id")
+            payload = getattr(rec, "payload", None) if not isinstance(rec, dict) else rec.get("payload")
+            geom = (payload or {}).get("geometry")
+            if geom is None:
+                passthrough_ids.append(rec_id)
+                continue
+            try:
+                geometried.append(shapely.geometry.shape(geom))
+                geometried_ids.append(rec_id)
+            except Exception:
+                passthrough_ids.append(rec_id)  # unparseable geometry -- fail open to envelope-only
+
+        if not geometried:
+            return envelope_ids
+
+        tree = STRtree(geometried)
+        hit_positions = tree.query(aoi_shape, predicate="intersects")
+        confirmed_ids = {geometried_ids[i] for i in hit_positions}
+
+        return [i for i in envelope_ids if i in confirmed_ids or i in passthrough_ids]
 
     def _extract_bboxes(self, geometry: Dict[str, Any]) -> List[List[float]]:
         """Extract one or two bboxes from a GeoJSON geometry.
@@ -280,6 +374,17 @@ class HybridRetrieval:
 
         Uses Qdrant's built-in payload filtering during vector search
         to enforce that only spatially-qualified items are ranked.
+
+        PATCH (P3-T1): current qdrant-client (>=1.10) removed ``.search()``
+        in favor of ``.query_points()``, which wraps its hits in a
+        ``QueryResponse.points`` list rather than returning them bare. The
+        original code called only ``.search()`` -- verified against a real
+        local Qdrant instance (not just ``MockQdrantClient``, which still
+        implements the old ``.search()`` shape) that this raised
+        ``AttributeError`` on any currently-installable qdrant-client. Try
+        the modern API first; fall back to the legacy shape so
+        ``MockQdrantClient`` (and any genuinely old client) keeps working
+        unchanged.
         """
         try:
             from qdrant_client.models import Filter, HasIdCondition
@@ -287,19 +392,25 @@ class HybridRetrieval:
         except ImportError:
             query_filter = {"must": [{"has_id": allowed_ids}]}
 
-        # Generate embedding for query
         query_vector = self._embed(query_text)
 
-        # Semantic search with ID filter
-        results = self.client.search(
+        if hasattr(self.client, "query_points"):
+            response = self.client.query_points(
+                collection_name=self.collection_name,
+                query=query_vector,
+                query_filter=query_filter,
+                limit=top_k,
+                with_payload=True,
+            )
+            return response.points
+
+        return self.client.search(
             collection_name=self.collection_name,
             query_vector=query_vector,
             query_filter=query_filter,
             limit=top_k,
             with_payload=True,
         )
-
-        return results
 
     def _embed(self, text: str) -> List[float]:
         """Generate text embedding.
@@ -314,11 +425,22 @@ class HybridRetrieval:
         return _hash_embedding(text)
 
     def _parse_hit(self, hit: Any) -> STACItem:
-        """Parse a Qdrant search result into a STACItem."""
+        """Parse a Qdrant search result into a STACItem.
+
+        PATCH (P3-T1): real Qdrant point IDs must be an unsigned integer or
+        a UUID (a plain string like "atl-canopy" is rejected at upsert
+        time -- verified against a live instance). ``stac_indexer.py``
+        therefore stores the catalog's real string ID in
+        ``payload["stac_id"]`` and uses a UUID5 derived from it as the
+        actual point ID. Prefer ``stac_id`` when present; fall back to the
+        raw point id for ``MockQdrantClient``, which never remaps IDs and
+        so already uses the STAC string ID as-is.
+        """
         payload = hit.payload if hasattr(hit, "payload") else hit.get("payload", {})
         bbox_payload = payload.get("bbox", {})
+        raw_id = hit.id if hasattr(hit, "id") else hit.get("id")
         return STACItem(
-            id=hit.id if hasattr(hit, "id") else hit.get("id"),
+            id=payload.get("stac_id", raw_id),
             title=payload.get("title", "Untitled"),
             description=payload.get("description", ""),
             bbox=[
@@ -332,4 +454,7 @@ class HybridRetrieval:
             variables=payload.get("variables", []),
             collection=payload.get("collection", ""),
             metadata_score=payload.get("metadata_score", 0),
+            geometry=payload.get("geometry"),
+            license=payload.get("license"),
+            lineage=payload.get("lineage"),
         )
