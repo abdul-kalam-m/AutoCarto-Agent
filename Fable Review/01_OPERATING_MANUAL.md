@@ -678,17 +678,17 @@ Currently **zero tests**. Build in this order — each layer catches a different
 
 | Item | Now | Target |
 |---|---|---|
-| Version control + tagged poster state | ❌ | P0 |
-| One-command reproducible env (`pip install -e .` / conda) | ❌ (env broken on PATH python) | P0 |
-| CI green on Linux+Windows | ✅ (2026-07-27, all 4 legs: ubuntu/windows × py3.12/3.14) | P0 |
-| Test coverage ≥80% on `gates/`, `sandbox` | 🟡 (130 tests total, every gate branch covered; percentage not separately measured) | P1 |
+| Version control + tagged poster state | ✅ — tag `poster-2026`; GitHub remote (`abdul-kalam-m/CartoLLM`) since 2026-07-27 | P0 |
+| One-command reproducible env (`pip install -e .` / conda) | ✅ — `pip install -e .[dev]` verified across this entire session, incl. fresh installs in CI (4 OS/Python legs) and a real Docker build; the "broken on PATH python" note was the pre-P0 state | P0 |
+| CI green on Linux+Windows | ✅ (2026-07-27, all 5 jobs: ubuntu/windows × py3.12/3.14 + `gvisor-security`) | P0 |
+| Test coverage ≥80% on `gates/`, `sandbox` | 🟡 — 219 passing + 33 skipped locally (252 collected; was 130), every gate branch covered by an explicit test, but no coverage tool (`pytest-cov` or similar) has ever actually been run — the percentage itself remains asserted, not measured. **Genuinely still open.** | P1 |
 | All 6 gates implemented | ✅ 6/6 (2026-07-27) | P1 |
-| Deterministic trace schema + diff tool | 🟡 (traces exist as JSON dicts, documented via docstrings; no formal `schema.json` file or diff tool) | P2 |
-| Secrets handling (LLM keys via env, never in trace) | n/a | P2 |
-| Data snapshots with checksums | ❌ | P0/P4 |
+| Deterministic trace schema + diff tool | 🟡 (traces exist as JSON dicts, documented via docstrings; no formal `schema.json` file or diff tool exists). **Genuinely still open.** | P2 |
+| Secrets handling (LLM keys via env, never in trace) | ✅ (2026-07-27) — `src/autocarto/env.py` loads `CENSUS_API_KEY`/`NVIDIA_API_KEY` from a gitignored `.env` (real env vars take precedence); verified no key is ever logged, committed, or embedded in a trace — all reads go straight into request headers | P2 |
+| Data snapshots with checksums | ✅ — `data/MANIFEST.md`: SHA-256 for all three snapshots (TIGER geometry, ACS income, CDC PLACES asthma), each with a regeneration script; ACS's reproduces byte-for-byte against the committed hash (verified 2026-07-27) | P0/P4 |
 | Sandbox image built + gVisor red-team pass | ✅ (2026-07-27) — `Dockerfile.sandbox` builds; 27 escape vectors (`tests/security/test_escapes.py`) all fail under the real `gvisor-security` CI job | P5 |
 | Air-gapped mode proven (zero sockets) | ✅ (2026-07-27) — `AUTOCARTO_OFFLINE=1`; zero-socket claim verified by patching `socket.socket` itself during a full demo run, not inferred from which classes go unused | P5 |
-| Quantitative claims regenerable by one command | ❌ | P4 |
+| Quantitative claims regenerable by one command | 🟡 — current claims (GVF, I_xy/rho, per-gate rejection rates) regenerate via `autocarto demo`/`autocarto benchmark`/`scripts/gen_results_panel.py`, all verified reproducible. The two claims that genuinely can't ("23% of proposals rejected," "34s end-to-end") were **excised from the abstract**, not left as unregenerable-but-still-claimed — see P4-T3. Not a gap in the shipped claims, but the row stays 🟡 since "regenerable by one command" isn't true of literally everything ever stated historically. | P4 |
 | Docs: per-gate rationale pages | ✅ (2026-07-27) — `docs/validation_gates.md`, `docs/architecture.md`, `docs/quickstart.md` | P5 |
 
 ---
