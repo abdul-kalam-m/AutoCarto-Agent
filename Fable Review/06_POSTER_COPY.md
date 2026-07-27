@@ -1,7 +1,7 @@
 # AutoCarto-Agent — STDS 2026 Poster Copy (final draft)
 
 **Venue:** International Symposium of Spatiotemporal Data Science (STDS) · poster session
-**Prepared:** 2026-07-17 · **Last verified end-to-end:** 2026-07-26 (§10) · **Companion:** [02_CONFERENCE_PRESENTATION_GUIDE.md](02_CONFERENCE_PRESENTATION_GUIDE.md) (delivery scripts, Q&A) · [§9 checklist](#9-pre-print-verification-checklist)
+**Prepared:** 2026-07-17 · **Last verified end-to-end:** 2026-07-27 (§11 — the full six-gate pipeline, orchestrator, real LLM tier, and gVisor sandbox this document previously listed as "specified" are now built and CI-verified) · **Companion:** [02_CONFERENCE_PRESENTATION_GUIDE.md](02_CONFERENCE_PRESENTATION_GUIDE.md) (delivery scripts, Q&A — not yet updated to match this pass; treat any "two gates only" framing there as stale until it is) · [§9 checklist](#9-pre-print-verification-checklist)
 **How to use:** each block below is paste-ready text for `output/figures/Poster_STDS26.ai`, with placement, what it replaces, and the source that regenerates every printed number. Nothing here is aspirational — every claim traces to a command you can run at the poster session.
 
 **Design principle — the three reads.** A poster is three documents at three distances:
@@ -61,11 +61,11 @@ The three-tier layout, colour grammar, and authority-boundary caption are the po
 > **G2 (Diagnostic)**
 > Rejections carry precomputed breaks — the LLM transcribes, never negotiates.
 
-**3b. Sandbox callout — fix the attribution** (currently credits gVisor with "Reflection: Blocked"; reflection blocking is the AST sanitizer, and the container is unbuilt):
+**3b. Sandbox callout — update now that the container is real** (previous draft correctly flagged it as "designed — not yet built"; as of 2026-07-27 it is built, and independently red-team tested against 27 attack vectors under real `gVisor` isolation, not the sanitizer):
 
 > **Execution Sandbox**
 > AST sanitizer — escape & reflection vectors blocked *(verified)*
-> Container isolation — gVisor, network-none *(designed — not yet built)*
+> Container isolation — gVisor, network-none, non-root, no shell *(built + red-team verified: 27/27 attack vectors blocked, sanitizer bypassed)*
 
 **3c. Boundary caption — keep verbatim** (it is the best line on the poster):
 
@@ -100,32 +100,39 @@ Place `output/figures/ungated_vs_gated.png` in the bottom-left region (the old w
 > **GVF: 0.75 → 0.83** (canopy) and **0.77 → 0.86** (asthma) over the naïve quintile breaks
 > **Gate 3b:** I_xy = **+0.326** (pseudo-p = 0.005, 199 permutations) · Spearman ρ = **+0.947** → **APPROVE** — bivariate encoding unlocked
 
-**Block B — ground-truth benchmark (new; replaces the retired "23%"):**
+**Block A′ — real data, not just synthetic validation (new, 2026-07-27):**
 
-> **Ground-truth benchmark** · 24 seeded scenarios with known correct outcomes
-> **95% correct** on the 21 unambiguous cases (20/21) — 6/6 benign passed, 14/15 pathological rejected, **every rejection with its prescription**. 3 more are borderline by construction and correctly flagged, not forced.
-> The one miss — two independent fields spuriously cross-correlating — is disclosed; a conditional-permutation null is queued.
+> **Real Atlanta case** · 519 tracts with matched data (of 530; 11 non-residential/no-estimate, dropped not imputed) · real Census ACS median household income × real CDC PLACES asthma prevalence
+> **Gate 3b: I_xy = −0.56** (p = 0.005) · Spearman ρ = **−0.78** → **APPROVE** — higher income, lower asthma, a real and well-documented health-equity pattern, not an engineered demo
+> Income alone: **Moran's I = 0.59** (p = 0.001) — real, significant spatial clustering, correctly confirmed by Gate 3a
 
-*(Print-space note: if the box is tight, the middle line may compress to "6/6 benign passed, 14/15 pathological rejected (3 borderline, correctly flagged)" — keep "20/21," never bare "24," so the denominator is never ambiguous on the printed poster.)*
+**Block B — ground-truth benchmark, all six gates (updated 2026-07-27; replaces the retired "23%"):**
+
+> **Ground-truth benchmark** · 42 seeded scenarios with known correct outcomes, covering all six gates (was 24, two gates)
+> **97.4% correct** (38/39 scored; 3 more borderline by construction and correctly flagged, not forced) — 17/17 benign passed, 21/22 pathological rejected, **every rejection with its prescription**
+> The one miss — two independent fields spuriously cross-correlating — is disclosed; a conditional-permutation null exists (opt-in, real tradeoff — see handout).
+
+*(Print-space note: if the box is tight, the middle line may compress to "17/17 benign passed, 21/22 pathological rejected (3 borderline, correctly flagged)" — keep "38/39 across 42," never a bare scenario count, so the denominator is never ambiguous on the printed poster.)*
 
 **Block C — reproducibility strip (one line, monospace if possible):**
 
-> `pip install -e . && autocarto demo` → gate verdicts **byte-identical** across runs · fully offline · core validation < 3 s · 67 tests · pinned TIGER snapshot (SHA-256)
+> `pip install -e . && autocarto demo` → gate verdicts **byte-identical** across runs · fully offline · core validation < 3 s · 223 tests · pinned TIGER + ACS + CDC snapshots (SHA-256) · CI green (Linux + Windows, incl. a dedicated gVisor red-team job)
 
-*Rationale:* Block A's GVF line replaces the untraceable "raises GVF from failure to 0.894" with the verified before/after (Manual §5); "quintile-derived" (not "Jenks") matches the exact terminology `demo.py` and `benchmark.py` use for this baseline — see the footnote below on why F-NEW-1 uses a *different* naive baseline (equal-interval) on purpose. Block B leads with **decision accuracy against known truth** — the defensible headline the synthetic corpus actually supports — accounts for all 24 scenarios explicitly (21 scored + 3 disclosed-borderline, not silently dropped), and *prints the miss*, which converts your weakest point into evidence of rigor before anyone asks Q12. Block C is the claim no poster neighbor can match; keep it terse and typeset like code.
+*Rationale:* Block A's GVF line replaces the untraceable "raises GVF from failure to 0.894" with the verified before/after (Manual §5); "quintile-derived" (not "Jenks") matches the exact terminology `demo.py` and `benchmark.py` use for this baseline — see the footnote below on why F-NEW-1 uses a *different* naive baseline (equal-interval) on purpose. Block A′ is the single strongest addition since the last draft: it moves the poster from "we validated this on synthetic data with known ground truth" (necessary, but a reviewer can always ask "so does it work on anything real?") to a genuine, unengineered, substantively interesting empirical finding — keep it small (three lines) so it supplements Block A rather than competing with it for the 30-second read. Block B leads with **decision accuracy against known truth** — the defensible headline the synthetic corpus actually supports — accounts for all 42 scenarios explicitly (39 scored + 3 disclosed-borderline, not silently dropped), and *prints the miss*, which converts your weakest point into evidence of rigor before anyone asks Q12. Block C is the claim no poster neighbor can match; keep it terse and typeset like code.
 
 **Footnote — two naive baselines, used on purpose, not inconsistently:** F-NEW-1 (§4) uses **equal-interval** breaks because that isolates the classic "even spacing ignores distribution shape" failure most visibly (78% collapse). Block A and the benchmark (§5, §8) use **quintile-derived** breaks because that is the exact naïve policy the demo/benchmark harness scripts as "the LLM's default proposal." Both are real failure modes Gate 2 catches; neither substitutes for the other. If a viewer asks why the two differ, that's the answer.
 
 ---
 
-## 6. Right-bottom — Status & Roadmap box (new; ~4 lines)
+## 6. Right-bottom — Status box (rewritten 2026-07-27; the roadmap in the previous draft is now complete)
 
-> **STATUS — what runs today vs. what is specified**
-> ✅ *Implemented & verified:* Gates 2, 3b · spatial-first retrieval · sandbox sanitizer · deterministic demo + benchmark (67 tests)
-> 📋 *Specified (engineering plan):* Gates 1, 3a, 4–6 · orchestrator + LLM tier · gVisor container
-> → *Next:* real ACS/CDC variables · full gate suite · conditional-permutation null
+> **STATUS — the full pipeline runs end to end**
+> ✅ *All six gates implemented & tested* — CRS · classification · univariate + bivariate spatial structure · projection distortion · color accessibility · completeness
+> ✅ *A real agent, not a mock-up* — Propose→Verify→Execute orchestrator with mandate-and-retry convergence (≤3 iterations); a real open-source LLM tier (Llama 3.1 70B) alongside the deterministic mock
+> ✅ *A genuine security boundary, tested against attack* — Docker + gVisor sandbox, 27 red-team escape vectors blocked, CI-verified on every commit
+> → *What's not claimed:* the historical "23%"/"34s end-to-end" figures were retired, not reproduced — a labeled real-prompt-through-real-LLM benchmark is the one number this system still doesn't have
 
-*Rationale:* Guide §4.2-5 — poster sessions reward candor; this box answers "only two gates?" (Q2) before it's asked and makes the uniform gate stack in the architecture band honest. **Re-verified before this draft:** `grep`-checked the full source tree for any univariate Moran's I / Gate 3a implementation — none exists (`src/autocarto/execution/gates/` contains only `gate2_classification.py` and `gate3b_bivariate_correlation.py`; the Atlanta results panel only ever computes *bivariate* Moran's I). The two-gate claim was already accurate; do not add Gate 3a to the implemented list without shipping the code first.
+*Rationale:* Guide §4.2-5 — poster sessions reward candor; the previous draft's "only two gates, rest is a plan" box answered Q2 honestly for the state at the time, but the roadmap it described is now finished, so keeping that framing would *undersell* the system, which is its own kind of inaccuracy. **Re-verified before this draft (2026-07-27):** all six gate modules exist and pass their own tests (`src/autocarto/execution/gates/`); `orchestrator.py` drives a real convergence loop (`tests/test_orchestrator.py`); `Dockerfile.sandbox` builds and its red-team suite (`tests/security/test_escapes.py`) passes 30/30 under a real `gvisor-security` CI job, not just locally. The one thing still honestly absent is called out explicitly rather than left for a reviewer to discover — matching this document's own rule (§9) that a disclosed gap is worth more than a claim that doesn't survive a follow-up question.
 
 ---
 
@@ -133,9 +140,9 @@ Place `output/figures/ungated_vs_gated.png` in the bottom-left region (the old w
 
 **Replace** the current small-print note with:
 
-> **Synthetic by design:** variables are seeded SAR fields on real TIGER topology — *known ground truth is what lets us verify the validator.* Real-variable case study is the next milestone. · Geometry: Census TIGER (Fulton + DeKalb, GA), pinned snapshot · Python 3.14 · PySAL 4.14 · GeoPandas 1.1
+> **Synthetic *and* real:** the controlled case uses seeded SAR fields on real TIGER topology — *known ground truth is what lets us verify the validator.* The real-data case (Block A′) uses real Census ACS income and CDC PLACES asthma prevalence for the same 519 tracts. · Geometry: Census TIGER (Fulton + DeKalb, GA), pinned snapshot · Python 3.14 · PySAL 4.14 · GeoPandas 1.1
 
-*Rationale:* same disclosure, reframed as the methodological choice it is (Guide Q1). **Correction to the previous draft of this document:** the version numbers (Python 3.14 / PySAL 4.14 / GeoPandas 1.1) match the *actual environment that generated every figure and passed all 67 tests* — verified by `python -c "import sys, geopandas, libpysal; print(...)"` → 3.14.3 / 1.1.3 / 4.14.1. They do **not** match the committed `environment.yml`, which still pins the untested original-submission versions (python=3.11.8, geopandas=0.14.4, libpysal=4.9.2 — nobody has ever run `conda env create` against it). **TD-6 is not closed; that earlier claim was wrong and is retracted.** Print the footnote as-is (it correctly describes the real, verified environment) — but track "reconcile `environment.yml` with the actual dev stack" as its own separate Phase-0 task (Manual §11 TD-6), not something this poster-copy pass fixed.
+*Rationale:* same disclosure, reframed as the methodological choice it is (Guide Q1) — but the "next milestone" framing from the previous draft is gone because the real-variable case study it promised is now done (Block A′, 2026-07-27) and directly on the poster, not deferred to a talk-track promise. **Correction to the previous draft's TD-6 claim, now itself corrected:** that draft found the version footer (Python 3.14 / PySAL 4.14 / GeoPandas 1.1) matched the real dev environment but *not* the committed `environment.yml`, and retracted an earlier "TD-6 closed" claim as premature. **TD-6 is now genuinely resolved (2026-07-27, verified fresh for this draft):** `environment.yml` pins `python=3.14.3`/`geopandas=1.1.3`/`libpysal=4.14.1` — checked directly against `python -c "import sys, geopandas, libpysal"` on this pass, exact match, not assumed. Print the footnote as-is; the version numbers are now true both of the dev environment *and* the committed file, which was not the case in the prior draft.
 
 ---
 
@@ -155,8 +162,10 @@ Every printed number, its value, and the command that regenerates it. Run all fo
 |---|---|---|
 | 530 tracts · GVF 0.75→0.83 / 0.77→0.86 · I_xy +0.326, p .005 · ρ +0.947 | Block A | `python scripts/gen_results_panel.py` |
 | 78% / 414-of-530 collapse · classes [98/134/144/91/63] | §2, §4 | `python scripts/gen_ungated_vs_gated.py` (+ `pytest tests/test_figures.py`) |
-| 95% (20/21 of 24; 3 disclosed-borderline) · 6/6 benign · 14/15 pathological · 1 disclosed miss | Block B | `autocarto benchmark` |
-| Gate verdicts byte-identical · offline · core validation <3 s · 67 tests | Block C | `autocarto demo` twice, then `diff traces/gate2_classification_trace.json` and `gate3b_bivariate_trace.json` **only** — see the ⚠ box below before diffing the other two trace files |
+| 519 real tracts · I_xy −0.56, p .005 · ρ −0.78 → APPROVE · income Moran's I 0.59, p .001 | Block A′ | `python -c "from autocarto.real_data import load_real_atlanta_dataset as L; ..."` (see `Fable Review/01_OPERATING_MANUAL.md` Phase 4 status block for the exact snippet) |
+| 97.4% (38/39 of 42, all six gates; 3 disclosed-borderline) · 17/17 benign · 21/22 pathological · 1 disclosed miss | Block B | `autocarto benchmark` |
+| Gate verdicts byte-identical · offline · core validation <3 s · 223 tests | Block C | `autocarto demo` twice, then `diff traces/gate2_classification_trace.json` and `gate3b_bivariate_trace.json` **only** — see the ⚠ box below before diffing the other two trace files; `pytest` for the test count |
+| Container isolation built + red-team verified: 27/27 attack vectors blocked | §3b | `pytest tests/security/test_escapes.py -v` **on a machine/CI job with real `--runtime=runsc`** — elsewhere this suite skips cleanly rather than silently passing; see `.github/workflows/ci.yml`'s `gvisor-security` job |
 | "escape & reflection vectors blocked (verified)" | §3b | `pytest tests/sandbox/` (sanitizer suite) |
 
 **Removed from the old poster — do not reintroduce:** `GVF … 0.894` (untraceable; wrong), `23% of proposals rejected` (unfalsifiable as printed, appeared in *two* places — the Gate 2 badge §3a-ii **and** a banner baked into `architecture_boundary.png` itself, §3a-i), `100% sandbox escape prevention` (overclaim baked into the same banner), `Reflection: Blocked` under gVisor (misattributed).
@@ -184,4 +193,24 @@ All five figure scripts, the benchmark, and the full test suite were re-run from
 
 ---
 
-*Copy drafted against the verified state at commit `a1fdb0a`; wording fixes at `2b9b749`; figure regeneration and finding 1–3 from the 2026-07-26 pass (`feb1884`); finding 4 added in a follow-up pass the same day, prompted by external review. If the benchmark or figures are regenerated with different seeds/corpus before printing, re-run §9 and §10 and update the affected blocks — never the other way around.*
+## 11. Regeneration log — 2026-07-27 (full pipeline built since the last pass)
+
+Everything §10 listed as "specified, not built" was built, tested, and CI-verified in the roadmap phases that followed the 2026-07-26 pass. This is not a touch-up; every claim below was re-verified fresh for this update, not carried forward from memory of earlier sessions.
+
+**Reconfirmed exactly (no drift) from §10:** 530 tracts · GVF 0.7514→0.8348 / 0.7741→0.8607 · I_xy +0.3262 (p=0.0050) · ρ +0.9471 → APPROVE · F-NEW-1's 414/530 (78%) collapse and [98/134/144/91/63] classes · TIGER snapshot SHA-256 unchanged. Gate 2/3a/3b's core math was not touched by any pass since 2026-07-26 (the one adjacent change — rounding classification breaks to 6 significant figures in the human-readable `instruction` text, for cross-platform CI stability — is explicitly display-only and does not change any printed statistic; verified the underlying numeric breaks arrays are byte-identical before and after).
+
+**What changed, verified fresh for this pass (all commands re-run, not recalled):**
+
+1. **All six gates now implemented, not two** (`build_report()['corpus']`, re-run for this pass): Gate 1 (CRS, 3 scenarios), Gate 3a (univariate spatial structure, 9), Gate 4 (projection distortion, 4), Gate 5 (color accessibility, 2), alongside Gate 2 (15) and Gate 3b (9) — **42 total**, up from 24. Strict decision accuracy **97.44% (38/39)**, up from 95.2% (20/21) — a larger, harder corpus with a *better* score, not a smaller one padded to look good. Updated Block B (§5), the Status box (§6).
+2. **A real orchestrator and a real (non-mock) LLM tier exist.** `Orchestrator.run()` drives the full Propose→Verify→Execute loop with mandate-and-retry convergence; `NvidiaLLM` does genuine intent parsing against a real hosted model (verified live: it correctly distinguishes "income *relates to* asthma" → bivariate from "map *just* income" → choropleth). Mandate iterations never call the API — deterministic transcription once a gate prescription exists, matching the mock's behavior exactly, which is what makes the ≤3-iteration convergence claim provable rather than hoped-for. Updated the Status box (§6).
+3. **The gVisor container is built and red-team tested, not "designed."** `Dockerfile.sandbox` builds `autocarto-sandbox:latest`: non-root, no shell, network-isolated. 27 attack vectors (network exfiltration, filesystem writes, privilege escalation, resource exhaustion, reflection-based escapes, raw syscalls) run directly against it with the sanitizer bypassed entirely — a dedicated CI job installs real `runsc` on a Linux runner and confirmed **30/30 passing** (27 vectors + 3 supporting checks) on the first attempt. Updated §3b, §9, the Status box.
+4. **A real, unengineered empirical result exists alongside the synthetic validation case.** Real Census ACS median household income × real CDC PLACES asthma prevalence, same 519 tracts (of 530; 11 dropped for missing estimates, not imputed): I_xy = −0.56 (p=0.005), Spearman ρ = −0.78, Gate 3b **APPROVE** — a genuine, well-documented health-equity pattern the system found, not manufactured. Income alone shows real spatial clustering (Moran's I = 0.59, p=0.001), correctly confirmed by Gate 3a. New Block A′ (§5) — this closes the "does it work on anything real?" question the previous draft's synthetic-only results left open.
+5. **TD-6 (environment reconciliation) is now genuinely resolved**, correcting the previous draft's retraction of a premature "TD-6 closed" claim: `environment.yml` now pins `python=3.14.3`/`geopandas=1.1.3`/`libpysal=4.14.1`, checked directly against the running interpreter for this pass — an exact match, not assumed. Updated §7.
+6. **Test count: 223 passing** (was 67) — every new gate, the orchestrator, both LLM clients, the red-team suite, and air-gapped mode each have dedicated tests, not just the original two-gate suite grown incrementally. 33 tests skip cleanly where their dependency isn't available (a live network/Docker/gVisor requirement), which is correct behavior, not a gap — see `docs/quickstart.md` if asked. Updated Block C (§5).
+7. **CI runs for real, on every commit** — Linux + Windows × two Python versions, plus the dedicated `gvisor-security` job. This did not go green on the first real run (a version-pin misdiagnosis, then a process-wide threading fix that itself needed narrowing, then two independent application bugs the CI failure surfaced) — the full honest sequence is in `Fable Review/01_OPERATING_MANUAL.md`'s dated status blocks, not repeated here; the poster only needs the end state. Updated Block C.
+
+**What is still, honestly, not claimed:** the historical "23% of proposals rejected" and "34 s end-to-end" figures remain retired, not reproduced — producing them would need a labeled natural-language-prompt corpus run through the real LLM (many paid API calls), deliberately not done to avoid unbounded cost. Test coverage as a percentage has never been formally measured (every gate branch has an explicit test, but no coverage tool has been run). Neither claim is printed anywhere in this document; both are named explicitly in the Status box (§6) so a follow-up question has an answer already prepared, not a scramble.
+
+---
+
+*Copy drafted against the verified state at commit `a1fdb0a`; wording fixes at `2b9b749`; figure regeneration and finding 1–3 from the 2026-07-26 pass (`feb1884`); finding 4 added in a follow-up pass the same day, prompted by external review. §11's full-pipeline update verified against commit `5a19bea` (2026-07-27) — every number in §11 was re-run for that pass, not carried forward. If the benchmark or figures are regenerated with different seeds/corpus before printing, re-run §9 and §11 (the current authoritative regeneration log — §10 is historical) and update the affected blocks — never the other way around.*
