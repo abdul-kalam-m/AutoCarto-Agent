@@ -481,6 +481,20 @@ class _DevOnlySandboxExecutor(SandboxExecutor):
     file imports ``_DevOnlySandboxExecutor``.
     """
 
+    # RLIMIT_AS bounds the *whole process's* virtual address space -- there
+    # is no per-thread equivalent -- unlike the Docker backend's --memory,
+    # which bounds an isolated container starting from near-zero usage. By
+    # the time this runs inside a real demo.py/pytest process, numpy/scipy/
+    # pandas/matplotlib/geopandas are already loaded, which alone can use
+    # several hundred MB of virtual address space. Reusing the Docker
+    # backend's 512MB figure here (as a previous version of this code did)
+    # set the whole process's ceiling *below* what was already mapped, so
+    # the next allocation of any kind -- including the thread stack for the
+    # sandboxed code itself -- failed with "can't start new thread". Only
+    # ever observed on Linux: the `resource` module doesn't exist on
+    # Windows, so this path silently no-ops there instead.
+    INPROCESS_MEMORY_LIMIT_MB = 4096
+
     def __init__(self, style: Optional[str] = None):
         # Bypass the parent __init__ guard that rejects "inprocess".
         # We do NOT call super().__init__("inprocess") — we construct manually.
@@ -493,14 +507,31 @@ class _DevOnlySandboxExecutor(SandboxExecutor):
         import time
         start = time.time()
 
+        old_as_limit = None
         try:
             import resource  # type: ignore[import-not-found]
-            resource.setrlimit(
-                resource.RLIMIT_AS,
-                (self.MEMORY_LIMIT_MB * 1024 * 1024, self.MEMORY_LIMIT_MB * 1024 * 1024),
-            )
+            old_as_limit = resource.getrlimit(resource.RLIMIT_AS)
+            # Tighten only the soft limit; leave the hard limit untouched so
+            # it can be restored below (an unprivileged process can never
+            # raise a hard limit back up once lowered).
+            _, hard = old_as_limit
+            new_soft = self.INPROCESS_MEMORY_LIMIT_MB * 1024 * 1024
+            resource.setrlimit(resource.RLIMIT_AS, (new_soft, hard))
         except (ImportError, ValueError):
-            pass
+            old_as_limit = None
+
+        try:
+            return self._exec_thread(code, start)
+        finally:
+            if old_as_limit is not None:
+                try:
+                    import resource
+                    resource.setrlimit(resource.RLIMIT_AS, old_as_limit)
+                except (ImportError, ValueError):
+                    pass
+
+    def _exec_thread(self, code: str, start: float) -> SandboxResult:
+        import time
 
         # TD-9: apply style runner-side, in this process, before the user
         # code runs — matplotlib rcParams are process-global, so this takes
