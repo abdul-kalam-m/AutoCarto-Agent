@@ -1,0 +1,18 @@
+# CI dependency constraints — pin the native numeric stack to the versions
+# actually verified to pass (see environment.yml / TD-6), excluding the
+# bleeding-edge releases that pyproject.toml's loose `>=` bounds would
+# otherwise let CI resolve.
+#
+# Why this file exists: the first real CI run (2026-07-27) segfaulted on
+# Linux in scipy.linalg.solve because pip resolved scipy 1.18.0 + numpy
+# 2.5.1 — both released within days and mutually ABI-incompatible on the
+# GitHub runner's OpenBLAS. Windows passed; Linux core-dumped (exit 139).
+# The application code is correct (green on scipy 1.17.x / numpy 2.4.x);
+# this is purely a "loose bounds don't substitute for a lock file"
+# reproducibility gap, exactly as the Operating Manual's TD-6 note warned.
+#
+# Kept CI-only (not in pyproject.toml) so the library itself stays
+# install-flexible for downstream users while CI reproduces a known-good
+# combination. Revisit when a newer scipy/numpy pair is verified to pass.
+numpy<2.5
+scipy<1.18
