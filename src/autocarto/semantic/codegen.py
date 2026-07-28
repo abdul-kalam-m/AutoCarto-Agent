@@ -27,7 +27,7 @@ the same lesson applied to stylesheet injection).
 from __future__ import annotations
 
 from string import Template
-from typing import Any, Dict, FrozenSet, Tuple
+from typing import Any, Dict, FrozenSet, Optional, Tuple
 
 from autocarto.contracts import MapProposal, RenderPlan
 from autocarto.execution.gates.gate6_completeness import RenderManifest
@@ -36,15 +36,30 @@ from autocarto.execution.gates.gate6_completeness import RenderManifest
 # A real scale bar computed from the GeoDataFrame's own extent in whatever
 # CRS it is currently in (not a decorative fixed-length bar) -- deliberately
 # not the ``matplotlib-scalebar`` package, which is not a project dependency.
+#
+# The raw 20%-of-extent length is snapped to a cognitively simple number
+# (1/2/5 x 10^n) rather than printed as-is -- an unsnapped bar reads like
+# "14478 m", a distance nobody reasons in; this is pure template arithmetic
+# on the geometry's own bounds, computed at exec time (gdf isn't known
+# until then), with zero LLM involvement either way.
 _SCALE_BAR_SNIPPET = '''\
 _xmin, _ymin, _xmax, _ymax = gdf.total_bounds
-_bar_len = (_xmax - _xmin) * 0.2
+_raw_bar_len = (_xmax - _xmin) * 0.2
+_unit = "m" if (gdf.crs is not None and gdf.crs.is_projected) else "deg"
+if _raw_bar_len > 0:
+    import math as _math
+    _exp = _math.floor(_math.log10(_raw_bar_len))
+    _frac = _raw_bar_len / 10 ** _exp
+    _nice_frac = 1 if _frac < 1.5 else (2 if _frac < 3 else (5 if _frac < 7 else 10))
+    _bar_len = _nice_frac * 10 ** _exp
+else:
+    _bar_len = _raw_bar_len
 _bar_x0 = _xmin + (_xmax - _xmin) * 0.05
 _bar_y0 = _ymin + (_ymax - _ymin) * 0.05
-_unit = "m" if (gdf.crs is not None and gdf.crs.is_projected) else "deg"
+_bar_label = f"{_bar_len / 1000:.0f} km" if (_unit == "m" and _bar_len >= 1000) else f"{_bar_len:.0f} {_unit}"
 ax.plot([_bar_x0, _bar_x0 + _bar_len], [_bar_y0, _bar_y0],
         color="black", linewidth=2, solid_capstyle="butt")
-ax.text(_bar_x0 + _bar_len / 2, _bar_y0, f"{_bar_len:.0f} {_unit}",
+ax.text(_bar_x0 + _bar_len / 2, _bar_y0, _bar_label,
         ha="center", va="bottom", fontsize=6)
 '''
 
@@ -68,11 +83,13 @@ _CHOROPLETH_TEMPLATE = Template('''\
 import matplotlib.pyplot as plt
 from matplotlib.colors import BoundaryNorm, ListedColormap
 from matplotlib.cm import ScalarMappable
+from matplotlib.ticker import FuncFormatter
 
 _breaks = $breaks
 _palette = $palette
 _title = $title
 _crs_note = $crs_note
+_value_unit = $unit
 
 _n_classes = len(_breaks) - 1
 _cmap = ListedColormap(_palette) if isinstance(_palette, list) else plt.get_cmap(_palette, _n_classes)
@@ -80,11 +97,25 @@ _norm = BoundaryNorm(_breaks, _cmap.N)
 
 _classification_note = $classification_note
 
+def _fmt_tick(x, _pos):
+    # Unit-aware legend/colorbar tick labels -- a bare "250001" reads like a
+    # leaked Python float, not a value a reader can interpret at a glance.
+    # Named distinctly from the scale-bar snippet's own "_unit" (meters/deg)
+    # below -- matplotlib's colorbar formatter runs lazily at draw time, so
+    # this closure would otherwise read whatever the scale-bar code last
+    # assigned to a same-named variable, not the value present when the
+    # colorbar was constructed.
+    if _value_unit == "USD":
+        return f"$${x:,.0f}"
+    if _value_unit == "percent":
+        return f"{x:,.1f}%"
+    return f"{x:,.0f}"
+
 fig, ax = plt.subplots(figsize=(10, 8))
 gdf.plot(column=variable_column, ax=ax, cmap=_cmap, norm=_norm, edgecolor="white", linewidth=0.2)
 _sm = ScalarMappable(cmap=_cmap, norm=_norm)
 _sm.set_array([])
-fig.colorbar(_sm, ax=ax, shrink=0.6, label=_title)
+fig.colorbar(_sm, ax=ax, shrink=0.6, label=_title, format=FuncFormatter(_fmt_tick))
 ax.set_title(_title)
 ax.set_axis_off()
 if _classification_note:
@@ -171,6 +202,15 @@ def _classification_note(template_id: str, proposal: MapProposal, render_plan: R
     return None
 
 
+def _prettify_variable(name: str) -> str:
+    """Human-readable form of a snake_case variable name for titles/legend
+    labels -- 'median_household_income' -> 'Median Household Income'.
+    Variable names in this system are plain English words joined by
+    underscores (see real_data.py/demo_data.py), so a straight title-case
+    replace is safe; this is not a general-purpose slug prettifier."""
+    return name.replace("_", " ").title()
+
+
 def _py_literal(value: Any) -> str:
     """Render a Python value as source text via repr — safe because the
     value always originates from a ProvenancedValue already validated as
@@ -185,6 +225,7 @@ def generate(
     citation: str,
     crs_note: str = "",
     correlation_note: str = "",
+    variable_unit: Optional[str] = None,
 ) -> Tuple[str, RenderManifest]:
     """Fill an audited template's slots and return (code, manifest).
 
@@ -200,7 +241,10 @@ def generate(
         raise ValueError(f"Unknown template_id {template_id!r}; must be one of {sorted(TEMPLATES)}")
     template, guaranteed_elements = entry
 
-    title = f"{', '.join(proposal.variables)} — {proposal.map_type.replace('_', ' ').title()}"
+    title = (
+        f"{', '.join(_prettify_variable(v) for v in proposal.variables)} — "
+        f"{proposal.map_type.replace('_', ' ').title()}"
+    )
     classification_note = _classification_note(template_id, proposal, render_plan)
 
     if template_id == "choropleth_v1":
@@ -211,6 +255,7 @@ def generate(
             citation=_py_literal(citation),
             crs_note=_py_literal(crs_note),
             classification_note=_py_literal(classification_note or ""),
+            unit=_py_literal(variable_unit or ""),
         )
     elif template_id == "bivariate_v1":
         code = template.substitute(

@@ -86,10 +86,26 @@ class MockLLM(LLMClient):
        breaks) that gives Gate 2 something to evaluate and, typically,
        reject on the first pass.
     2. **A prescription is present in the context (post-rejection):**
-       adopts the most recent prescription's method/breaks/projection/
-       palette verbatim — "the LLM's remaining job is transcription of
-       the mandated method" (poster copy §2). This is what makes bounded
-       (<=3 iteration) convergence plausible even with a weak LLM.
+       adopts each field (classification method/breaks, projection,
+       palette) from whichever accumulated prescription actually supplies
+       it — "the LLM's remaining job is transcription of the mandated
+       method" (poster copy §2). This is what makes bounded (<=3
+       iteration) convergence plausible even with a weak LLM.
+
+       PATCH (found 2026-07-27): originally read every field from only
+       ``context.prescriptions[-1]`` (the single most recent rejection).
+       That silently broke as soon as two gates could REJECT on the same
+       iteration (e.g. Gate 2 on missing breaks and Gate 5 on an unsafe/
+       miscoded palette at once, both real once Gate 5 gained a check that
+       can fire on the very first, palette-naive proposal): whichever gate
+       happened to run last (GATE_ORDER) would have its prescription
+       "shadow" the other's in ``[-1]``, so e.g. Gate 5's palette fix would
+       silently discard Gate 2's breaks fix, and vice versa -- exactly the
+       gap ``GateSuiteResult.consolidated_mandate()`` exists to prevent
+       (its own docstring: "collect every rejection's prescription...
+       rather than round-tripping gate-by-gate"). Fixed by scanning every
+       accumulated prescription and taking each field from whichever one
+       (most recently) actually supplies it, independently per field.
     """
 
     provider = "mock"
@@ -116,16 +132,21 @@ class MockLLM(LLMClient):
         projection_epsg: Optional[int] = None
         palette = list(self.default_palette)
 
-        if context.prescriptions:
-            latest = context.prescriptions[-1]
-            method = latest.method
-            prescribed_breaks = latest.params.get("breaks")
+        # Each field is sourced independently from whichever accumulated
+        # prescription (most recently) actually supplies it -- not just
+        # prescriptions[-1] -- so two gates rejecting on the same iteration
+        # (e.g. G2 on missing breaks, G5 on palette) both get addressed
+        # instead of the later one in GATE_ORDER silently shadowing the
+        # earlier one's fix. See the PATCH note in the class docstring.
+        for p in context.prescriptions:
+            prescribed_breaks = p.params.get("breaks")
             if prescribed_breaks:
+                method = p.method
                 breaks = list(prescribed_breaks)
-            prescribed_epsg = latest.params.get("target_epsg")
+            prescribed_epsg = p.params.get("target_epsg")
             if prescribed_epsg:
                 projection_epsg = int(prescribed_epsg)
-            prescribed_palette = latest.params.get("palette")
+            prescribed_palette = p.params.get("palette")
             if prescribed_palette:
                 palette = list(prescribed_palette)
 

@@ -134,6 +134,33 @@ def test_mandate_iteration_transcribes_without_network():
     assert record.provider == "nvidia"
 
 
+def test_mandate_iteration_merges_two_simultaneous_prescriptions():
+    """A real, previously-broken scenario: G2 (missing breaks) and G5 (an
+    unsafe/miscoded palette) can both REJECT on the same iteration. Reading
+    only prescriptions[-1] made whichever gate runs later in GATE_ORDER
+    silently shadow the other's fix -- e.g. G5's prescription.method
+    ("colorblind_safe_palette") would get adopted as classification_method,
+    and G2's breaks fix would be dropped entirely, forcing a false
+    non-convergence. Caught via a real end-to-end run against real ACS
+    income data with this exact real LLM client, not a synthetic
+    reproduction."""
+    llm = NvidiaLLM(api_key=DUMMY)
+    ctx = _ctx(prescriptions=[
+        Prescription(
+            method="quantile", instruction="fix breaks",
+            params={"breaks": [15625.0, 51584.4, 71164.0, 93004.6, 130255.8, 250001.0]},
+        ),
+        Prescription(
+            method="colorblind_safe_palette", instruction="fix palette",
+            params={"palette": ["#edf8e9", "#bae4b3", "#74c476", "#31a354", "#006d2c"]},
+        ),
+    ])
+    proposal, _record = llm.propose(ctx, "map income")
+    assert proposal.classification_method == "quantile"
+    assert proposal.classification_breaks == [15625.0, 51584.4, 71164.0, 93004.6, 130255.8, 250001.0]
+    assert proposal.palette == ["#edf8e9", "#bae4b3", "#74c476", "#31a354", "#006d2c"]
+
+
 def test_call_record_carries_model_and_prompt_hash():
     llm = NvidiaLLM(api_key=DUMMY)
     ctx = _ctx(prescriptions=[Prescription(method="quantile", instruction="x", params={})])

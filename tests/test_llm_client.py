@@ -37,6 +37,31 @@ def test_post_prescription_transcribes_mandated_method_and_breaks():
     assert proposal.iteration == 1
 
 
+def test_two_simultaneous_prescriptions_are_both_adopted():
+    """A real, previously-broken scenario: two gates (e.g. G2 on missing
+    breaks, G5 on an unsafe/miscoded palette) can REJECT on the same
+    iteration. Reading only prescriptions[-1] let whichever one runs later
+    in GATE_ORDER silently shadow the other's fix -- its method name would
+    get adopted as classification_method and the other gate's fix would be
+    dropped, forcing a false non-convergence. See the matching PATCH note
+    on MockLLM.propose's docstring."""
+    prescriptions = [
+        Prescription(
+            method="quantile", instruction="fix breaks",
+            params={"breaks": [15625.0, 51584.4, 71164.0, 93004.6, 130255.8, 250001.0]},
+        ),
+        Prescription(
+            method="colorblind_safe_palette", instruction="fix palette",
+            params={"palette": ["#edf8e9", "#bae4b3", "#74c476", "#31a354", "#006d2c"]},
+        ),
+    ]
+    llm = MockLLM()
+    proposal, _record = llm.propose(_context(prescriptions), "Map tree canopy loss")
+    assert proposal.classification_method == "quantile"
+    assert proposal.classification_breaks == [15625.0, 51584.4, 71164.0, 93004.6, 130255.8, 250001.0]
+    assert proposal.palette == ["#edf8e9", "#bae4b3", "#74c476", "#31a354", "#006d2c"]
+
+
 def test_two_variables_proposes_bivariate():
     ctx = SemanticContext(
         dataset_schemas=[

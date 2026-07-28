@@ -108,4 +108,8 @@ def load_real_atlanta_dataset(*, variables: Optional[list] = None):
             "median_household_income": "Income: Census ACS 5-Year 2022, table B19013.",
             "asthma_prevalence": "Asthma: CDC PLACES 2023, measure CASTHMA.",
         },
+        variable_units={k: v for k, v in {
+            "median_household_income": "USD",
+            "asthma_prevalence": "percent",
+        }.items() if k in variables},
     )

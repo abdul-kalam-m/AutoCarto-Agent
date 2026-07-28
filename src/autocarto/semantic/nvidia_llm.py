@@ -123,15 +123,22 @@ class NvidiaLLM(LLMClient):
         projection_epsg: Optional[int] = None
         palette = list(self.default_palette)
 
-        if context.prescriptions:
-            latest = context.prescriptions[-1]
-            method = latest.method
-            if latest.params.get("breaks"):
-                breaks = list(latest.params["breaks"])
-            if latest.params.get("target_epsg"):
-                projection_epsg = int(latest.params["target_epsg"])
-            if latest.params.get("palette"):
-                palette = list(latest.params["palette"])
+        # Each field sourced independently from whichever accumulated
+        # prescription (most recently) actually supplies it -- not just
+        # prescriptions[-1]. Two gates can REJECT on the same iteration
+        # (e.g. G2 on missing breaks, G5 on an unsafe/miscoded palette);
+        # reading only the last one lets whichever gate runs later in
+        # GATE_ORDER silently shadow the other's fix -- see the matching
+        # PATCH note on MockLLM.propose in llm_client.py, where this same
+        # bug was first found and fixed.
+        for p in context.prescriptions:
+            if p.params.get("breaks"):
+                method = p.method
+                breaks = list(p.params["breaks"])
+            if p.params.get("target_epsg"):
+                projection_epsg = int(p.params["target_epsg"])
+            if p.params.get("palette"):
+                palette = list(p.params["palette"])
 
         proposal = MapProposal(
             map_type=map_type,

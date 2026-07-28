@@ -119,12 +119,20 @@ class Dataset:
     # flat `citation` string structurally cannot express that distinction.
     # None (the default) preserves old behavior exactly: `citation` alone.
     citation_by_variable: Optional[Dict[str, str]] = None
+    # Optional per-variable unit ("USD", "percent", ...), used to format
+    # legend/colorbar tick labels sensibly (currency with thousands
+    # separators, a percent sign, etc.) instead of printing raw floats --
+    # and, via to_field_schemas below, given to the LLM as context too.
+    # Empty dict (the default) falls back to plain thousands-separator
+    # formatting with no unit symbol.
+    variable_units: Dict[str, str] = field(default_factory=dict)
 
     def to_field_schemas(self) -> List[FieldSchema]:
         return [
             FieldSchema(
                 name=name, dtype=str(np.asarray(arr).dtype),
                 role=self.variable_roles.get(name),
+                unit=self.variable_units.get(name),
             )
             for name, arr in self.variables.items()
         ]
@@ -252,6 +260,7 @@ class Orchestrator:
                 citation=self._resolve_citation(dataset, proposal.variables),
                 crs_note=f"EPSG:{render_plan.projection.value}",
                 correlation_note=self._correlation_note(suite),
+                variable_unit=dataset.variable_units.get(proposal.variables[0]),
             )
         except AuthorityViolation as exc:
             trace["execution_error"] = f"AuthorityViolation: {exc}"
@@ -323,7 +332,10 @@ class Orchestrator:
 
         n_classes = len(breaks_used) - 1 if breaks_used else _DEFAULT_N_CLASSES
         palette_used = self._resolve_palette(proposal, n_classes)
-        results.append(self.gate5.evaluate(palette_used, diverging=(proposal.map_type == "bivariate")))
+        results.append(self.gate5.evaluate(
+            palette_used, diverging=(proposal.map_type == "bivariate"),
+            variable_names=proposal.variables,
+        ))
 
         resolved = {"breaks": breaks_used, "epsg": epsg, "palette": palette_used}
         return GateSuiteResult(results=results), resolved

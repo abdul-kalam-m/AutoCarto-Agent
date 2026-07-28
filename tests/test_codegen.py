@@ -69,6 +69,80 @@ def test_choropleth_template_executes_and_produces_figure(small_gdf):
     assert gate_res.decision == "PASS"
 
 
+def test_choropleth_title_and_legend_are_human_readable(small_gdf):
+    """A real user's finding: the title/legend read like raw Python
+    identifiers ("median_household_income") and the colorbar showed bare
+    floats ("250001") with no currency formatting. Checks the *rendered*
+    output (drawn tick label text, not just the generated source string) --
+    a naive check of the FuncFormatter callable alone would have missed a
+    real bug this test caught: the formatter's "_unit" variable name
+    collided with _SCALE_BAR_SNIPPET's own "_unit" (assigned later in the
+    same script, to "m"/"deg"), so matplotlib's lazy draw-time formatting
+    call silently saw the wrong value and always fell back to plain
+    thousands-separator formatting -- no exception, no manifest mismatch,
+    just wrong pixels."""
+    proposal = MapProposal(map_type="choropleth", variables=["median_household_income"],
+                           classification_method="jenks")
+    plan = RenderPlan(
+        breaks=ProvenancedValue([98000.0, 130256.0, 165000.0, 200000.0, 250001.0], "GATE_PRESCRIBED", "G2"),
+        projection=ProvenancedValue(5070, "GATE_PRESCRIBED", "G4"),
+        palette=ProvenancedValue("YlGn", "TEMPLATE_DEFAULT"),
+        template_id=ProvenancedValue("choropleth_v1", "TEMPLATE_DEFAULT"),
+    )
+    code, manifest = generate(
+        proposal, plan, citation="Source: ACS B19013", crs_note="EPSG:5070",
+        variable_unit="USD",
+    )
+
+    ast.parse(code)
+    exec_globals = {"gdf": small_gdf, "variable_column": "variable_column"}
+    exec(compile(code, "<test>", "exec"), exec_globals)
+    fig = exec_globals["fig"]
+
+    assert "median_household_income" not in manifest.title
+    assert "Median Household Income" in manifest.title
+
+    fig.canvas.draw()
+    colorbar_ax = next(a for a in fig.axes if a is not exec_globals["ax"])
+    tick_labels = [t.get_text() for t in colorbar_ax.get_yticklabels()]
+    plt.close(fig)
+
+    assert tick_labels, "expected at least one colorbar tick label"
+    assert all(lbl.startswith("$") and "," in lbl for lbl in tick_labels), tick_labels
+    assert any("250,001" in lbl for lbl in tick_labels), tick_labels
+
+
+def test_scale_bar_snaps_to_round_number():
+    """A real user's finding: the scale bar showed an unrounded raw length
+    ("14478 m") -- a distance nobody reasons in. _SCALE_BAR_SNIPPET now
+    snaps to a cartographic "nice number" (1/2/5 x 10^n). Uses a
+    deliberately non-round extent (raw 20%-of-width length is 2900 m) --
+    a fixture whose raw length already happened to be round would pass
+    even if the snapping code were deleted entirely."""
+    gdf = gpd.GeoDataFrame(
+        {"geometry": [box(i * 3000, 0, i * 3000 + 2500, 20000) for i in range(5)],
+         "variable_column": [1.0, 5.0, 12.0, 30.0, 80.0]},
+        crs="EPSG:5070",
+    )
+    proposal = MapProposal(map_type="choropleth", variables=["x"], classification_method="jenks")
+    plan = RenderPlan(
+        breaks=ProvenancedValue([0.5, 3.0, 6.0, 12.0, 21.0, 73.0], "GATE_PRESCRIBED", "G2"),
+        projection=ProvenancedValue(5070, "GATE_PRESCRIBED", "G4"),
+        palette=ProvenancedValue("YlOrRd", "TEMPLATE_DEFAULT"),
+        template_id=ProvenancedValue("choropleth_v1", "TEMPLATE_DEFAULT"),
+    )
+    code, _ = generate(proposal, plan, citation="c", crs_note="EPSG:5070")
+
+    exec_globals = {"gdf": gdf, "variable_column": "variable_column"}
+    exec(compile(code, "<test>", "exec"), exec_globals)
+    plt.close(exec_globals["fig"])
+
+    raw_len = (gdf.total_bounds[2] - gdf.total_bounds[0]) * 0.2
+    assert raw_len == pytest.approx(2900.0)  # deliberately not already round
+    assert exec_globals["_bar_len"] == 2000.0
+    assert exec_globals["_bar_label"] == "2 km"
+
+
 def test_bivariate_template_executes_and_satisfies_gate6(small_gdf):
     proposal = MapProposal(map_type="bivariate", variables=["tree_canopy_loss", "asthma_rate"])
     plan = RenderPlan(
