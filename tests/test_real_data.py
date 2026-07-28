@@ -71,6 +71,30 @@ def test_real_univariate_income_shows_real_spatial_clustering():
     assert g3a["diagnostics"]["morans_i"] > 0.3
     assert g3a["decision"] == "PASS"
 
+    # A real user's finding: an income-only map's citation footer claimed
+    # "Asthma: CDC PLACES 2023, measure CASTHMA" -- data this specific map
+    # never touched -- because Dataset.citation was one flat string
+    # describing the whole dataset, not the one map actually rendered.
+    # Fixed via Dataset.citation_by_variable + Orchestrator._resolve_citation;
+    # this asserts the fix on the real scenario that exposed the bug, not a
+    # synthetic reproduction of it.
+    assert "CASTHMA" not in result.code
+    assert "Asthma" not in result.code
+    assert "Census ACS" in result.code  # the citation for the variable actually used
+
+
+def test_real_bivariate_citation_mentions_both_sources():
+    """The other half of the same fix: a map that DOES use both variables
+    should cite both -- _resolve_citation must not over-correct into
+    dropping a fragment that's actually relevant."""
+    ds = load_real_atlanta_dataset()
+    orch = Orchestrator(llm=MockLLM(), max_iter=3, seed=0)
+    result = orch.run("Map median household income vs asthma prevalence in Atlanta", ds)
+
+    assert result.success is True
+    assert "Census ACS" in result.code
+    assert "CDC PLACES" in result.code
+
 
 def test_real_data_gate2_naive_proposal_rejected_then_converges():
     """Even real, 'well_behaved' data shouldn't pass a naive proposal with

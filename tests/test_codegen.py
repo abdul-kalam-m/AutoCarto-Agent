@@ -55,6 +55,16 @@ def test_choropleth_template_executes_and_produces_figure(small_gdf):
     assert manifest.data_citation == "Source: NLCD 2021"
     assert "log_transform_then_jenks" in manifest.classification_note
 
+    # Not just "does the manifest claim this" -- does the generated code
+    # actually draw it. A prior version of generate() populated
+    # manifest.classification_note unconditionally, regardless of whether
+    # choropleth_v1's template had any text-drawing call for it at all, so
+    # this exact assertion (checking the manifest only) would have passed
+    # even while the figure itself showed nothing -- a real user caught the
+    # gap by comparing a rendered map against its trace.
+    rendered_texts = " ".join(t.get_text() for t in fig.axes[0].texts)
+    assert "log_transform_then_jenks" in rendered_texts
+
     gate_res = CompletenessGate().evaluate(manifest, "choropleth")
     assert gate_res.decision == "PASS"
 
@@ -85,6 +95,14 @@ def test_bivariate_template_executes_and_satisfies_gate6(small_gdf):
 
     assert manifest.bivariate_legend_present is True
     assert manifest.correlation_statistic_shown is True
+    assert manifest.classification_note is not None
+
+    # Same real-execution check as the choropleth test above: bivariate_v1
+    # claimed "classification_note" as guaranteed (TEMPLATES dict) but had
+    # no text-drawing call for it at all before this fix -- only
+    # correlation_note was ever actually rendered.
+    rendered_texts = " ".join(t.get_text() for t in fig.axes[0].texts)
+    assert "tertile" in rendered_texts.lower()
 
     gate_res = CompletenessGate().evaluate(manifest, "bivariate")
     assert gate_res.decision == "PASS"

@@ -110,6 +110,15 @@ class Dataset:
     weights: Optional[np.ndarray] = None
     description: Optional[str] = None
     citation: str = "Source: unspecified"
+    # Optional per-variable citation fragments (e.g. {"asthma_prevalence":
+    # "Asthma: CDC PLACES 2023, measure CASTHMA."}), appended to `citation`
+    # for only the variables actually in a given proposal -- see
+    # _resolve_citation. A dataset that mixes sources (e.g. real_data.py's
+    # ACS income + CDC asthma) must not print every source's citation on
+    # every map regardless of which variables that specific map uses; a
+    # flat `citation` string structurally cannot express that distinction.
+    # None (the default) preserves old behavior exactly: `citation` alone.
+    citation_by_variable: Optional[Dict[str, str]] = None
 
     def to_field_schemas(self) -> List[FieldSchema]:
         return [
@@ -240,7 +249,7 @@ class Orchestrator:
         try:
             code, manifest = codegen_generate(
                 proposal, render_plan,
-                citation=dataset.citation,
+                citation=self._resolve_citation(dataset, proposal.variables),
                 crs_note=f"EPSG:{render_plan.projection.value}",
                 correlation_note=self._correlation_note(suite),
             )
@@ -441,3 +450,25 @@ class Orchestrator:
                     f"rho={d.get('spearman_rho', 0):+.3f}, {r.decision}"
                 )
         return ""
+
+    @staticmethod
+    def _resolve_citation(dataset: Dataset, variables: List[str]) -> str:
+        """Build the citation actually printed on the map: `dataset.citation`
+        (the always-true part, e.g. geometry provenance) plus only the
+        per-variable fragments for variables this specific map uses.
+
+        Without this, a dataset mixing sources (real_data.py's ACS income +
+        CDC asthma) prints every source's citation on every map regardless
+        of which variables that map actually shows -- confirmed: mapping
+        income alone produced a footer citing CDC PLACES asthma data never
+        used in that render. Found by a user comparing a rendered map
+        against its own trace, not by this project's own testing.
+        """
+        if not dataset.citation_by_variable:
+            return dataset.citation
+        parts = [dataset.citation] if dataset.citation else []
+        for v in variables:
+            frag = dataset.citation_by_variable.get(v)
+            if frag:
+                parts.append(frag)
+        return " ".join(parts)

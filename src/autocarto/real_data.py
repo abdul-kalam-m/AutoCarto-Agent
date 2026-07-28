@@ -98,9 +98,14 @@ def load_real_atlanta_dataset(*, variables: Optional[list] = None):
             f"{len(gdf)} census tracts (real, non-imputed), Fulton + DeKalb "
             f"Counties, GA — real ACS + CDC PLACES data, no SAR synthetic"
         ),
-        citation=(
-            "Geometry: Census TIGER (pinned snapshot). "
-            "Income: Census ACS 5-Year 2022, table B19013. "
-            "Asthma: CDC PLACES 2023, measure CASTHMA."
-        ),
+        # Split by source: `citation` alone (geometry) applies to every map;
+        # `citation_by_variable` only gets appended for a variable actually
+        # in a given proposal, so a map of income alone never claims CDC
+        # asthma data it never touched, and vice versa -- see
+        # Orchestrator._resolve_citation.
+        citation="Geometry: Census TIGER (pinned snapshot).",
+        citation_by_variable={
+            "median_household_income": "Income: Census ACS 5-Year 2022, table B19013.",
+            "asthma_prevalence": "Asthma: CDC PLACES 2023, measure CASTHMA.",
+        },
     )

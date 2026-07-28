@@ -78,6 +78,8 @@ _n_classes = len(_breaks) - 1
 _cmap = ListedColormap(_palette) if isinstance(_palette, list) else plt.get_cmap(_palette, _n_classes)
 _norm = BoundaryNorm(_breaks, _cmap.N)
 
+_classification_note = $classification_note
+
 fig, ax = plt.subplots(figsize=(10, 8))
 gdf.plot(column=variable_column, ax=ax, cmap=_cmap, norm=_norm, edgecolor="white", linewidth=0.2)
 _sm = ScalarMappable(cmap=_cmap, norm=_norm)
@@ -85,6 +87,12 @@ _sm.set_array([])
 fig.colorbar(_sm, ax=ax, shrink=0.6, label=_title)
 ax.set_title(_title)
 ax.set_axis_off()
+if _classification_note:
+    ax.text(
+        0.02, 0.98, _classification_note, transform=ax.transAxes,
+        fontsize=7, va="top", ha="left",
+        bbox={"fc": "white", "ec": "0.7", "alpha": 0.9},
+    )
 ''' + _SCALE_BAR_SNIPPET + _CRS_CAPTION_SNIPPET + '''\
 fig.text(0.5, 0.01, $citation, ha="center", fontsize=6, color="0.4")
 ''')
@@ -95,6 +103,7 @@ import matplotlib.pyplot as plt
 
 _title = $title
 _correlation_note = $correlation_note
+_classification_note = $classification_note
 _crs_note = $crs_note
 
 fig, ax = plt.subplots(figsize=(10, 8))
@@ -106,6 +115,12 @@ ax.text(
     fontsize=7, va="bottom", ha="left",
     bbox={"fc": "white", "ec": "0.7", "alpha": 0.9},
 )
+if _classification_note:
+    ax.text(
+        0.02, 0.98, _classification_note, transform=ax.transAxes,
+        fontsize=7, va="top", ha="left",
+        bbox={"fc": "white", "ec": "0.7", "alpha": 0.9},
+    )
 ''' + _SCALE_BAR_SNIPPET + _CRS_CAPTION_SNIPPET + '''\
 fig.text(0.5, 0.01, $citation, ha="center", fontsize=6, color="0.4")
 ''')
@@ -134,7 +149,7 @@ fig.text(0.5, 0.01, $citation, ha="center", fontsize=6, color="0.4")
 TEMPLATES: Dict[str, Tuple[Template, FrozenSet[str]]] = {
     "choropleth_v1": (
         _CHOROPLETH_TEMPLATE,
-        frozenset({"title", "legend", "citation", "scale_or_graticule", "crs_note"}),
+        frozenset({"title", "legend", "citation", "scale_or_graticule", "crs_note", "classification_note"}),
     ),
     "bivariate_v1": (
         _BIVARIATE_TEMPLATE,
@@ -186,6 +201,7 @@ def generate(
     template, guaranteed_elements = entry
 
     title = f"{', '.join(proposal.variables)} — {proposal.map_type.replace('_', ' ').title()}"
+    classification_note = _classification_note(template_id, proposal, render_plan)
 
     if template_id == "choropleth_v1":
         code = template.substitute(
@@ -194,6 +210,7 @@ def generate(
             title=_py_literal(title),
             citation=_py_literal(citation),
             crs_note=_py_literal(crs_note),
+            classification_note=_py_literal(classification_note or ""),
         )
     elif template_id == "bivariate_v1":
         code = template.substitute(
@@ -201,6 +218,7 @@ def generate(
             citation=_py_literal(citation),
             correlation_note=_py_literal(correlation_note),
             crs_note=_py_literal(crs_note),
+            classification_note=_py_literal(classification_note or ""),
         )
     else:  # proportional_symbol_v1
         code = template.substitute(
@@ -209,6 +227,13 @@ def generate(
             crs_note=_py_literal(crs_note),
         )
 
+    # Every field here is gated on "is this in the template's own declared
+    # guarantee," including classification_note -- an earlier version left
+    # that one field unconditional (always computed a value regardless of
+    # guaranteed_elements), which made Gate 6 believe a choropleth's
+    # classification note was present when the template never actually drew
+    # it. A real user caught this by comparing a rendered map against its
+    # own trace; see tests/test_codegen.py's guaranteed-vs-rendered checks.
     manifest = RenderManifest(
         title=title if "title" in guaranteed_elements else None,
         legend_present="legend" in guaranteed_elements,
@@ -216,7 +241,9 @@ def generate(
         scale_bar_present="scale_or_graticule" in guaranteed_elements,
         data_citation=citation if "citation" in guaranteed_elements else None,
         crs_note=(crs_note or None) if "crs_note" in guaranteed_elements else None,
-        classification_note=_classification_note(template_id, proposal, render_plan),
+        classification_note=(
+            classification_note if "classification_note" in guaranteed_elements else None
+        ),
         correlation_statistic_shown=(
             "correlation_statistic" in guaranteed_elements and bool(correlation_note)
         ),
