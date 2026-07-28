@@ -80,6 +80,7 @@ _CHOROPLETH_TEMPLATE = Template('''\
 # Classification uses an explicit BoundaryNorm over the prescribed breaks
 # (not GeoDataFrame.plot(scheme=...), which needs the optional
 # 'mapclassify' package) -- same pattern as figures/gen_results_panel.py.
+import math as _math
 import matplotlib.pyplot as plt
 from matplotlib.colors import BoundaryNorm, ListedColormap
 from matplotlib.cm import ScalarMappable
@@ -100,11 +101,12 @@ _classification_note = $classification_note
 def _fmt_tick(x, _pos):
     # Unit-aware legend/colorbar tick labels -- a bare "250001" reads like a
     # leaked Python float, not a value a reader can interpret at a glance.
-    # Named distinctly from the scale-bar snippet's own "_unit" (meters/deg)
-    # below -- matplotlib's colorbar formatter runs lazily at draw time, so
-    # this closure would otherwise read whatever the scale-bar code last
-    # assigned to a same-named variable, not the value present when the
-    # colorbar was constructed.
+    # Named distinctly from the scale-bar panel's own "_bar_unit_label"
+    # (km/deg) below -- matplotlib's colorbar formatter runs lazily at draw
+    # time, so a shared name would risk this closure reading whatever a
+    # later assignment left behind, not the value present when the
+    # colorbar was constructed (this exact bug, with the old shared
+    # "_unit" name, is why the two are named differently now).
     if _value_unit == "USD":
         return f"$${x:,.0f}"
     if _value_unit == "percent":
@@ -115,16 +117,61 @@ fig, ax = plt.subplots(figsize=(10, 8))
 gdf.plot(column=variable_column, ax=ax, cmap=_cmap, norm=_norm, edgecolor="white", linewidth=0.2)
 _sm = ScalarMappable(cmap=_cmap, norm=_norm)
 _sm.set_array([])
-fig.colorbar(_sm, ax=ax, shrink=0.6, label=_title, format=FuncFormatter(_fmt_tick))
+# No `label=` -- the variable name is already the plot title above the map;
+# repeating it as vertical text along the colorbar was redundant clutter.
+_cb = fig.colorbar(_sm, ax=ax, shrink=0.6, format=FuncFormatter(_fmt_tick))
 ax.set_title(_title)
 ax.set_axis_off()
+
+# Classification note + scale bar live in a small stacked panel below the
+# colorbar -- not drawn over the map itself -- positioned from the
+# colorbar's own rendered bbox (fig.canvas.draw() forces a layout pass so
+# get_position() reflects where matplotlib actually put it) rather than a
+# guessed fixed coordinate, so this tracks correctly regardless of the
+# map's own extent/aspect ratio.
+fig.canvas.draw()
+_cb_box = _cb.ax.get_position()
+_panel_x = (_cb_box.x0 + _cb_box.x1) / 2
+_panel_y = _cb_box.y0 - 0.05
 if _classification_note:
-    ax.text(
-        0.02, 0.98, _classification_note, transform=ax.transAxes,
-        fontsize=7, va="top", ha="left",
-        bbox={"fc": "white", "ec": "0.7", "alpha": 0.9},
+    fig.text(
+        _panel_x, _panel_y, _classification_note, ha="center", va="top",
+        fontsize=8, bbox={"fc": "white", "ec": "0.7", "alpha": 0.9},
     )
-''' + _SCALE_BAR_SNIPPET + _CRS_CAPTION_SNIPPET + '''\
+    _panel_y -= 0.06
+
+_xmin, _ymin, _xmax, _ymax = gdf.total_bounds
+_raw_bar_len = (_xmax - _xmin) * 0.2
+_bar_is_projected = gdf.crs is not None and gdf.crs.is_projected
+if _raw_bar_len > 0:
+    _exp = _math.floor(_math.log10(_raw_bar_len))
+    _frac = _raw_bar_len / 10 ** _exp
+    _nice_frac = 1 if _frac < 1.5 else (2 if _frac < 3 else (5 if _frac < 7 else 10))
+    _bar_len = _nice_frac * 10 ** _exp
+else:
+    _bar_len = _raw_bar_len
+_bar_display_len = _bar_len / 1000 if _bar_is_projected else _bar_len
+_bar_unit_label = "km" if _bar_is_projected else "deg"
+
+# Classic segmented (alternating black/white) cartographic bar scale, with
+# tick labels at each segment boundary -- not just a single end label.
+_n_segments = 2
+_bar_panel_width = 0.18
+_bar_h = 0.018
+_bar_ax = fig.add_axes([_panel_x - _bar_panel_width / 2, _panel_y - _bar_h - 0.02, _bar_panel_width, _bar_h])
+for _i in range(_n_segments):
+    _seg_color = "black" if _i % 2 == 0 else "white"
+    _bar_ax.axvspan(_i / _n_segments, (_i + 1) / _n_segments, facecolor=_seg_color, edgecolor="black", linewidth=0.8)
+_bar_ax.set_xlim(0, 1)
+_bar_ax.set_ylim(0, 1)
+_bar_ax.set_yticks([])
+_bar_ax.set_xticks([_i / _n_segments for _i in range(_n_segments + 1)])
+_bar_ax.set_xticklabels([f"{_bar_display_len * _i / _n_segments:.0f}" for _i in range(_n_segments + 1)], fontsize=7)
+_bar_ax.tick_params(length=2, pad=2)
+for _spine in _bar_ax.spines.values():
+    _spine.set_visible(False)
+_bar_ax.set_title(f"Scale ({_bar_unit_label})", fontsize=8, pad=3)
+''' + _CRS_CAPTION_SNIPPET + '''\
 fig.text(0.5, 0.01, $citation, ha="center", fontsize=6, color="0.4")
 ''')
 

@@ -62,7 +62,11 @@ def test_choropleth_template_executes_and_produces_figure(small_gdf):
     # this exact assertion (checking the manifest only) would have passed
     # even while the figure itself showed nothing -- a real user caught the
     # gap by comparing a rendered map against its trace.
-    rendered_texts = " ".join(t.get_text() for t in fig.axes[0].texts)
+    #
+    # The note now lives in fig.texts (a fig.text() call in the legend
+    # panel below the colorbar), not ax.texts -- moved off the map itself
+    # per a later user request; see test_choropleth_legend_panel_is_below_colorbar_not_on_map.
+    rendered_texts = " ".join(t.get_text() for t in fig.texts)
     assert "log_transform_then_jenks" in rendered_texts
 
     gate_res = CompletenessGate().evaluate(manifest, "choropleth")
@@ -140,7 +144,56 @@ def test_scale_bar_snaps_to_round_number():
     raw_len = (gdf.total_bounds[2] - gdf.total_bounds[0]) * 0.2
     assert raw_len == pytest.approx(2900.0)  # deliberately not already round
     assert exec_globals["_bar_len"] == 2000.0
-    assert exec_globals["_bar_label"] == "2 km"
+
+    # Checks the actual rendered segmented bar (tick labels + title), not
+    # just the internal length variable -- a regression that snapped the
+    # length correctly but mislabeled the segmented bar's ticks would slip
+    # past a check of _bar_len alone.
+    bar_ax = exec_globals["_bar_ax"]
+    assert bar_ax.get_title() == "Scale (km)"
+    assert [t.get_text() for t in bar_ax.get_xticklabels()] == ["0", "1", "2"]
+
+
+def test_choropleth_legend_panel_is_below_colorbar_not_on_map(small_gdf):
+    """A second round of user feedback on the same map: the classification
+    note and scale bar used to be drawn directly on top of the map
+    geometry (ax.text/ax.plot in map data coordinates) and the colorbar
+    repeated the variable name as vertical text alongside its ticks.
+    Checks the actual geometry of what got drawn, not just presence:
+    nothing map-related left in ax.texts, the legend panel's vertical
+    position sits below the colorbar's own rendered bbox, and the colorbar
+    has no ylabel."""
+    proposal = MapProposal(map_type="choropleth", variables=["tree_canopy_loss"],
+                           classification_method="jenks")
+    plan = RenderPlan(
+        breaks=ProvenancedValue([0.5, 3.0, 6.0, 12.0, 21.0, 73.0], "GATE_PRESCRIBED", "G2"),
+        projection=ProvenancedValue(5070, "GATE_PRESCRIBED", "G4"),
+        palette=ProvenancedValue("YlOrRd", "TEMPLATE_DEFAULT"),
+        template_id=ProvenancedValue("choropleth_v1", "TEMPLATE_DEFAULT"),
+    )
+    code, _manifest = generate(proposal, plan, citation="c", crs_note="EPSG:5070")
+
+    exec_globals = {"gdf": small_gdf, "variable_column": "variable_column"}
+    exec(compile(code, "<test>", "exec"), exec_globals)
+    fig = exec_globals["fig"]
+    ax = exec_globals["ax"]
+
+    assert len(ax.texts) == 0, "classification note must not be drawn on the map axes anymore"
+
+    cb = exec_globals["_cb"]
+    assert cb.ax.get_ylabel() == "", "colorbar must not repeat the variable name as vertical text"
+
+    cb_box = cb.ax.get_position()
+    bar_ax = exec_globals["_bar_ax"]
+    bar_box = bar_ax.get_position()
+    assert bar_box.y1 <= cb_box.y0, "scale bar panel must sit below the colorbar, not beside/over it"
+
+    note_text = next(t for t in fig.texts if "jenks" in t.get_text())
+    note_y = note_text.get_position()[1]
+    assert note_y <= cb_box.y0, "classification note must sit below the colorbar, not over the map"
+    assert note_y >= bar_box.y1, "classification note must be above the scale bar, per the requested stacking order"
+
+    plt.close(fig)
 
 
 def test_bivariate_template_executes_and_satisfies_gate6(small_gdf):
