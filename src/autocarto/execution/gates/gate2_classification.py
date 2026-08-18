@@ -108,9 +108,27 @@ class DiagnosticResult:
     instruction: Optional[str] = None
     code_snippet: Optional[str] = None
     profile: Optional[DistributionProfile] = None
+    # True when the caller already supplied exactly what this gate would
+    # prescribe, and it still misses GVF_THRESHOLD. Re-prescribing is then
+    # futile -- the remedy IS the proposal -- so the result is reported as
+    # the best achievable classification for this distribution rather than
+    # as another rejection. `adapt_gate2` maps this to WARN, which does not
+    # block execution but records the shortfall in the trace. See the
+    # livelock note in `evaluate`.
+    best_effort: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
-        """Serializable dict for execution trace JSON."""
+        """Serializable dict for execution trace JSON.
+
+        `best_effort` is deliberately NOT emitted here. This dict is the
+        blessed golden-trace schema for `autocarto demo`
+        (output/traces/gate2_classification_trace.json, pinned by
+        tests/test_determinism.py), and none of the demo's cases reach the
+        best-effort branch -- so adding the key would break a blessed hash
+        to record a constant `false`. The flag is not lost: the orchestrator
+        path surfaces it through `GateResult.diagnostics["best_effort"]` and
+        through the WARN decision itself, which is where it is actionable.
+        """
         return {
             "gate": "G2",
             "diagnosis": self.diagnosis,
@@ -120,6 +138,38 @@ class DiagnosticResult:
             "prescribed_breaks": self.prescribed_breaks,
             "instruction": self.instruction,
         }
+
+
+def _same_prescription(
+    proposed_method: Optional[str],
+    proposed_breaks: Optional[List[float]],
+    prescribed_method: Optional[str],
+    prescribed_breaks: Optional[List[float]],
+) -> bool:
+    """True when the proposal already *is* the prescription.
+
+    Break values make a round trip through the LLM tier and the JSON trace
+    (where they are rounded to 6 significant figures for cross-platform CI
+    stability), so an exact float comparison would spuriously report
+    "different" and reopen the livelock this guard exists to close. The
+    tolerance is relative, because break magnitudes span orders of
+    magnitude across variables -- dollars, percentages, people per km².
+
+    A prescription with no break values is compared on method alone; that
+    is the honest reading, since there is nothing else to transcribe.
+    """
+    if prescribed_method is None or proposed_method != prescribed_method:
+        return False
+    if not prescribed_breaks:
+        return True
+    if not proposed_breaks or len(proposed_breaks) != len(prescribed_breaks):
+        return False
+    return all(
+        # rtol=1e-6 comfortably covers 6-significant-figure rounding while
+        # still separating genuinely different break sets.
+        abs(a - b) <= 1e-6 * max(1.0, abs(b))
+        for a, b in zip(proposed_breaks, prescribed_breaks)
+    )
 
 
 def _dedupe_breaks(breaks: List[float]) -> List[float]:
@@ -270,6 +320,49 @@ class ClassificationDiagnosticEngine:
             breaks = prescribed.get("breaks")
             instruction = prescribed["instruction"]
             code_snippet = prescribed.get("code_snippet")
+
+            # LIVELOCK GUARD (found 2026-08-11 on real Atlanta population
+            # density, skew 5.95). If the caller already supplied exactly
+            # what we are about to prescribe, prescribing it again cannot
+            # change anything: the next iteration recomputes the identical
+            # GVF and lands here again. The loop then runs until the
+            # orchestrator's iteration cap and escalates to a human, even
+            # though the classification on the table is the best this gate
+            # knows how to produce.
+            #
+            # The pre-existing `iteration_count >= MAX_ITERATIONS` hatch
+            # above cannot catch this: Orchestrator._run_gate_suite builds a
+            # FRESH engine per iteration (TD-10), so iteration_count is
+            # always 1 there. A counter-based guard only works for a caller
+            # that reuses one engine; this check is stateless and therefore
+            # holds for both callers.
+            #
+            # Concrete case: density diagnoses heavy_right_skew, the
+            # prescribed log1p transform genuinely works (skew 5.95 ->
+            # -0.03), but the resulting Jenks classification scores
+            # GVF=0.5991 against a 0.60 floor. The remedy is correct and
+            # simply cannot clear the bar on this distribution.
+            if method is not None and _same_prescription(
+                proposed_method, proposed_breaks, method, breaks
+            ):
+                return DiagnosticResult(
+                    diagnosis=diagnosis,
+                    gvf=gvf,
+                    passed=True,
+                    best_effort=True,
+                    prescribed_method=method,
+                    prescribed_breaks=breaks,
+                    instruction=(
+                        f"Best achievable classification for this distribution: "
+                        f"'{method}' yields GVF={gvf:.4f}, below the "
+                        f"{self.GVF_THRESHOLD} target. This IS the gate's own "
+                        f"prescription, so no further correction exists -- "
+                        f"proceeding with the shortfall recorded rather than "
+                        f"rejecting a remedy the gate itself mandated."
+                    ),
+                    profile=profile,
+                )
+
             if method is None:
                 quantile_breaks = [float(np.percentile(values, p)) for p in (0, 20, 40, 60, 80, 100)]
                 quantile_breaks = _dedupe_breaks(quantile_breaks)

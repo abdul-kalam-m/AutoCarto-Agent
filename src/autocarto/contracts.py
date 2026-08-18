@@ -164,10 +164,28 @@ def adapt_gate2(result: "DiagnosticResult") -> GateResult:
             },
             code_snippet=result.code_snippet,
         )
+    # A best-effort result passed only because no better classification
+    # exists -- the proposal already was this gate's own prescription and
+    # still missed the GVF floor. That is materially different from a clean
+    # pass and is reported as WARN: non-blocking (so the mandate loop can
+    # terminate) but visible in the trace, per the WARN tier's purpose of
+    # carrying defensible-but-imperfect choices with the shortfall recorded.
+    decision: GateDecision
+    if result.best_effort:
+        decision = "WARN"
+    elif result.passed:
+        decision = "PASS"
+    else:
+        decision = "REJECT"
+
     return GateResult(
         gate_id="G2",
-        decision="PASS" if result.passed else "REJECT",
-        diagnostics={"diagnosis": result.diagnosis, "gvf": round(result.gvf, 4)},
+        decision=decision,
+        diagnostics={
+            "diagnosis": result.diagnosis,
+            "gvf": round(result.gvf, 4),
+            "best_effort": result.best_effort,
+        },
         prescription=prescription,
         instruction=result.instruction,
     )
