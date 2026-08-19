@@ -10,10 +10,14 @@ P2 acceptance criterion). Opt into the real open-source LLM tier with
 ``--llm nvidia`` (reads NVIDIA_API_KEY from the environment or .env), and
 into real ACS+CDC data with ``--data real``. Writes the full iteration
 trace as JSON and, on success, the rendered figure as PNG, to ``--out``.
+Each run's files are timestamped (``trace_<stamp>.json`` /
+``map_<stamp>.png``) rather than overwriting a fixed name, so repeated
+runs into the same ``--out`` accumulate instead of erasing prior evidence.
 """
 
 from __future__ import annotations
 
+import datetime
 import sys
 import time
 from pathlib import Path
@@ -85,6 +89,13 @@ def main(argv: List[str] | None = None) -> int:
     print(f"  seed:     {args.seed}   max_iter: {args.max_iter}")
 
     t0 = time.time()
+    # Every invocation gets its own filenames, timestamped to microsecond
+    # resolution and shared between the trace and the figure so the pair
+    # for one run is identifiable at a glance. Without this, repeated runs
+    # into the same --out silently overwrote the previous run's trace.json
+    # and map.png -- a real user's finding, since a failed or superseded
+    # run's evidence disappeared the moment the next run started.
+    run_stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     print(f"  dataset:  {dataset.description}")
 
     orchestrator = Orchestrator(llm=llm, max_iter=args.max_iter, seed=args.seed)
@@ -104,12 +115,12 @@ def main(argv: List[str] | None = None) -> int:
               f"method={it['proposal']['classification_method']}, "
               f"rejections={gs['rejection_count']})")
 
-    trace_path = out_dir / "trace.json"
+    trace_path = out_dir / f"trace_{run_stamp}.json"
     trace_path.write_text(result.trace_json(), encoding="utf-8")
     print(f"\nTrace written: {trace_path}")
 
     if result.success:
-        fig_path = out_dir / "map.png"
+        fig_path = out_dir / f"map_{run_stamp}.png"
         result.figure.savefig(fig_path, dpi=200, bbox_inches="tight", facecolor="white")
         print(f"Figure written: {fig_path}")
         print(f"Gate 6 (completeness): {result.trace['gate6']['decision']}")

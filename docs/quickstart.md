@@ -48,7 +48,7 @@ autocarto run "Map median household income" --data real
 autocarto run "Show income vs asthma prevalence" --llm nvidia --data real
 ```
 
-Every run writes `trace.json` (the full iteration-by-iteration gate history) and, on success, `map.png` to `--out` (default `./output/run`).
+Every run writes a timestamped `trace_<stamp>.json` (the full iteration-by-iteration gate history) and, on success, a matching `map_<stamp>.png`, to `--out` (default `./output/run`) — each invocation gets its own pair rather than overwriting the previous run's.
 
 ## Air-gapped mode
 
