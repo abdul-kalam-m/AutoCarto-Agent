@@ -50,6 +50,7 @@ from autocarto.contracts import (
     FieldSchema,
     GateResult,
     GateSuiteResult,
+    IntentResolutionError,
     MapProposal,
     Prescription,
     ProvenancedValue,
@@ -215,7 +216,22 @@ class Orchestrator:
                 diagnoses=list(diagnoses),
                 prescriptions=list(prescriptions),
             )
-            proposal, llm_record = self.llm.propose(context, prompt)
+            try:
+                proposal, llm_record = self.llm.propose(context, prompt)
+            except IntentResolutionError as exc:
+                # The request cannot be honoured with this dataset. Refuse
+                # explicitly rather than mapping something else: the gate
+                # suite validates whether a map is correct, never whether
+                # it answers the question asked, so a substituted variable
+                # would sail through every gate and be reported a success.
+                report = str(exc)
+                trace["human_review"] = True
+                trace["insufficiency_report"] = report
+                trace["intent_unresolved"] = True
+                return MapResult(
+                    success=False, iterations=iteration, trace=trace,
+                    human_review=True, insufficiency_report=report,
+                )
             suite, resolved = self._run_pre_render_gates(proposal, dataset)
 
             trace["iterations"].append({

@@ -15,7 +15,13 @@ import os
 
 import pytest
 
-from autocarto.contracts import AreaOfInterest, FieldSchema, Prescription, SemanticContext
+from autocarto.contracts import (
+    AreaOfInterest,
+    FieldSchema,
+    IntentResolutionError,
+    Prescription,
+    SemanticContext,
+)
 from autocarto.env import get_key
 from autocarto.semantic.nvidia_llm import NvidiaLLM, _extract_json
 
@@ -70,14 +76,24 @@ def test_validate_intent_accepts_clean_bivariate():
 
 
 def test_validate_intent_drops_invented_variable_names():
+    """An invented name must never reach the orchestrator as if it were a
+    real column.
+
+    BEHAVIOUR CHANGE (2026-08-18): this test previously asserted that an
+    invented name was dropped and the validator then "falls back to real
+    schema variables". That fallback was the defect, not the guarantee --
+    it is what silently turned a Population Density request into a Median
+    Household Income map (see
+    test_unavailable_variable_is_refused_not_silently_substituted). The
+    protective intent of this test is unchanged and in fact strengthened:
+    the invented name still never reaches the orchestrator, but the request
+    is now refused rather than quietly answered with something else."""
     llm = NvidiaLLM(api_key=DUMMY)
-    out = llm._validate_intent(
-        {"map_type": "choropleth", "variables": ["totally_made_up_variable"]},
-        ["median_household_income", "asthma_prevalence"],
-    )
-    # invented name dropped -> falls back to real schema variables
-    assert out["variables"]
-    assert all(v in ["median_household_income", "asthma_prevalence"] for v in out["variables"])
+    with pytest.raises(IntentResolutionError, match="totally_made_up_variable"):
+        llm._validate_intent(
+            {"map_type": "choropleth", "variables": ["totally_made_up_variable"]},
+            ["median_household_income", "asthma_prevalence"],
+        )
 
 
 def test_validate_intent_case_insensitive_variable_match():
@@ -106,6 +122,64 @@ def test_validate_intent_bivariate_needs_two_vars_else_downgrades():
     )
     assert out["map_type"] == "choropleth"  # can't be bivariate with one variable
     assert out["variables"] == ["median_household_income"]
+
+
+def test_unavailable_variable_is_refused_not_silently_substituted():
+    """A real user's finding, caught by reading a trace against its own map:
+    the prompt asked for "Population Density", the dataset had no such
+    variable, and the system rendered a Median Household Income choropleth
+    instead -- all six gates PASS, render_success true, nothing anywhere in
+    the trace indicating the requested variable was absent.
+
+    The gates validate whether a map is *correct*; none of them checks
+    whether it is the map that was *asked for*, so a substituted variable
+    sails through the entire suite and is reported as a success. Refusing
+    here is the only place that check can live."""
+    llm = NvidiaLLM(api_key=DUMMY)
+    available = ["median_household_income", "asthma_prevalence"]
+    with pytest.raises(IntentResolutionError, match="population_density"):
+        llm._validate_intent(
+            {"map_type": "choropleth", "variables": ["population_density"]}, available,
+        )
+
+
+def test_partially_hallucinated_variables_keep_the_valid_ones():
+    """Only a *total* failure to resolve is refused. Dropping one invented
+    name while a real one survives is the existing, correct behaviour and
+    must not regress into an exception."""
+    llm = NvidiaLLM(api_key=DUMMY)
+    out = llm._validate_intent(
+        {"map_type": "bivariate",
+         "variables": ["median_household_income", "totally_made_up"]},
+        ["median_household_income", "asthma_prevalence"],
+    )
+    assert out["variables"] == ["median_household_income"]
+    assert out["map_type"] == "choropleth"  # downgraded: only one valid variable
+
+
+def test_empty_variable_list_still_falls_back_heuristically():
+    """The model returning *no* variables is a different failure (a model
+    problem, not a request problem) and keeps the graceful fallback."""
+    llm = NvidiaLLM(api_key=DUMMY)
+    out = llm._validate_intent(
+        {"map_type": "bivariate", "variables": []},
+        ["median_household_income", "asthma_prevalence"],
+    )
+    assert out["variables"] == ["median_household_income", "asthma_prevalence"]
+
+
+def test_intent_resolution_error_survives_the_graceful_degradation_path():
+    """_parse_intent wraps everything in `except Exception -> heuristic`.
+    That path exists for transport/parse failures and would convert this
+    refusal straight back into the silent substitution it exists to stop,
+    so the exception must be re-raised ahead of it."""
+    class StubbedNvidia(NvidiaLLM):
+        def _chat(self, system, user):
+            return '{"map_type":"choropleth","variables":["population_density"]}'
+
+    llm = StubbedNvidia(api_key=DUMMY)
+    with pytest.raises(IntentResolutionError):
+        llm.propose(_ctx(), "Map of Population Density in Atlanta")
 
 
 def test_validate_intent_invalid_purpose_defaults():

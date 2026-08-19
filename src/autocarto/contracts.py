@@ -55,6 +55,23 @@ class AuthorityViolation(Exception):
     """
 
 
+class IntentResolutionError(Exception):
+    """Raised when the request names variables that this dataset does not
+    have, leaving no resolvable mapping intent.
+
+    The failure mode this exists to prevent is *silent substitution*: the
+    intent validator drops names that are absent from the schema (correct
+    — it stops the model inventing columns), but if that leaves nothing
+    behind, falling back to "whatever is available" answers a question
+    nobody asked. A request for population density then renders a
+    perfectly valid income map, every gate passes, and the trace reports
+    success — the exact class of confident-but-wrong artifact this
+    architecture exists to refuse. Refusing here is the same posture the
+    gates take: a system that cannot honour the request says so rather
+    than shipping a plausible substitute.
+    """
+
+
 # ════════════════════════════════════════════════════════════════════════════
 # Gate result contract
 # ════════════════════════════════════════════════════════════════════════════

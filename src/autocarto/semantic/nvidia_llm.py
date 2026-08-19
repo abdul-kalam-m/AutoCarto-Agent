@@ -42,7 +42,7 @@ import time
 import urllib.request
 from typing import Any, Dict, List, Optional, Tuple
 
-from autocarto.contracts import MapProposal, SemanticContext
+from autocarto.contracts import IntentResolutionError, MapProposal, SemanticContext
 from autocarto.env import get_key
 from autocarto.semantic.llm_client import LLMCallRecord, LLMClient
 
@@ -180,6 +180,14 @@ class NvidiaLLM(LLMClient):
             content = self._chat(self._SYSTEM_PROMPT, user_msg)
             parsed = _extract_json(content)
             return self._validate_intent(parsed, available)
+        except IntentResolutionError:
+            # Must NOT be swallowed by the degrade-gracefully path below.
+            # A network or parse failure is a transport problem the
+            # heuristic can paper over; an unresolvable intent is a real
+            # answer about the request itself, and the heuristic fallback
+            # would convert it straight back into the silent substitution
+            # this exception exists to stop.
+            raise
         except Exception:
             return self._heuristic_intent(available)
 
@@ -208,6 +216,20 @@ class NvidiaLLM(LLMClient):
         variables = [v for v in variables if not (v in seen or seen.add(v))]
 
         if not variables:
+            # Distinguish "the model named things this dataset lacks" from
+            # "the model named nothing at all". The first is a request we
+            # cannot honour and must refuse: substituting an available
+            # variable here renders a confident map of a different subject
+            # and every downstream gate passes it, because the gates check
+            # whether the map is *valid*, never whether it is the map that
+            # was asked for. See IntentResolutionError.
+            unavailable = [v for v in raw_vars if isinstance(v, str)]
+            if unavailable:
+                raise IntentResolutionError(
+                    f"Request names variable(s) not present in dataset: "
+                    f"{unavailable}. Available: {available}. Refusing to "
+                    f"substitute a different variable."
+                )
             variables = available[:2] if len(available) >= 2 else available[:1]
         if map_type is None:
             map_type = "bivariate" if len(variables) >= 2 else "choropleth"
