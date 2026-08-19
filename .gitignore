@@ -30,6 +30,24 @@ artifacts/
 output/run/
 output/run_*/
 
+# Paper figures are byte-identical copies of output/figures/ (verified), so
+# committing them would store the same images three times. paper/README.md
+# has the one-line command that repopulates them before a LaTeX build.
+paper/figures/*.png
+paper/figures/*.pdf
+paper/submission/latex/figures/
+
+# LaTeX build leftovers; the compiled PDF under paper/submission/pdf/ is
+# what gets committed.
+paper/submission/latex/*.aux
+paper/submission/latex/*.bbl
+paper/submission/latex/*.blg
+paper/submission/latex/*.fdb_latexmk
+paper/submission/latex/*.fls
+paper/submission/latex/*.log
+paper/submission/latex/*.out
+paper/submission/latex/main.pdf
+
 # OS noise
 Thumbs.db
 .DS_Store

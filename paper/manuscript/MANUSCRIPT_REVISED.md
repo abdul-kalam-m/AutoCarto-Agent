@@ -1,0 +1,407 @@
+# AutoCarto-Agent: Deterministic Spatial Validation for Autonomous Thematic Cartography
+
+**DRAFT MANUSCRIPT — not submitted; no target venue selected.**
+
+Abdul Kalam Mustaq
+Edward J. Bloustein School of Planning and Public Policy, Rutgers University–New Brunswick
+ar.abdulkalam.mustaq@gmail.com
+
+*Draft of 2026-08-11. Formatting is venue-neutral. Reference entries marked `[CITE-VERIFY]` require edition and page confirmation before submission.*
+
+---
+
+## Abstract
+
+Large language models generate fluent geospatial code, but fluency is not cartographic validity: model-authored thematic maps routinely misclassify skewed distributions, select area-distorting projections, and apply bivariate encodings to variable pairs with no spatial cross-correlation. The autonomous-GIS literature has advanced rapidly on *capability* — task decomposition, executable workflow generation, style transfer — while correctness of the produced artifact is either inferred from execution success or delegated to model judgment, itself a stochastic process.
+
+We present AutoCarto-Agent, a neuro-symbolic architecture that inverts the trust relationship. A frozen language model reasons only about cartographic concepts — map type, visual encoding, template — and never receives raw data values. A deterministic engine computes every numeric decision, evaluates six validation gates covering coordinate-system integrity, distribution-aware classification, univariate and bivariate spatial structure, projection distortion, colour-vision accessibility, and completeness, and holds veto authority over the model's proposal. The mechanism that makes the veto convergent rather than merely obstructive is prescriptive rejection: a gate that rejects returns the mandated method together with precomputed constants, reducing the model's remaining role to transcription within an audited template. A typed provenance contract refuses any render plan containing a freely generated numeric constant, making authority separation auditable from the execution trace rather than asserted.
+
+Across a 42-scenario corpus with known-correct outcomes spanning all six gates, the engine reaches the correct decision in 38 of 39 scored cases (97.4%), with the single miss disclosed and traced to a quantified null-model limitation. In a controlled case on 530 census tracts with real geometry and seeded spatially autoregressive variables, the classification gate raises goodness-of-variance fit from 0.7514 to 0.8348 and from 0.7741 to 0.8607 over the naive proposal; an ablation shows the unconstrained classification collapsing 414 of 530 tracts (78%) into a single class where the gated pipeline yields balanced classes. Notably, the rejected classification attains a *higher* goodness-of-variance fit than the prescribed one, evidence that the gate is a distribution diagnostic rather than a fit optimiser. Run unmodified against real American Community Survey income and CDC PLACES asthma prevalence for 519 tracts, the same gates recover a documented health-equity gradient (bivariate Moran's I_xy = −0.56, *p* = 0.005; Spearman ρ = −0.78).
+
+We report what is not established: no large-scale natural-language prompt benchmark, no human-subject evaluation, uncalibrated thresholds for two of six gates, and a bivariate null model whose liberality we quantify at 18.97× mean *p*-value inflation on independent fields. The contribution is a transferable pattern for constrained spatial agents: deterministic validation with veto authority, and rejection that prescribes.
+
+**Keywords:** autonomous GIS · neuro-symbolic architecture · thematic cartography · spatial validation · large language models · reproducibility
+
+---
+
+# 1. Introduction
+
+A large language model can be asked, in plain English, to map median household income across a metropolitan area, and it will return executable code within seconds. The code imports the right libraries, joins the right tables, calls the right plotting functions, and produces a map that looks professionally made. Whether that map is *true* is a separate question, and one that nothing in the pipeline has asked.
+
+The failure is not exotic. Give a language model a heavy-tailed variable — income, tree-canopy loss, disease counts — and ask for a five-class choropleth, and the default equal-interval classification will place almost every observation in the lowest class. In the case examined in this paper, 414 of 530 census tracts (78%) collapse into a single colour. The resulting map is not merely unattractive; it is a claim about the world, and the claim is false: it asserts spatial uniformity where a strong gradient exists. The code raised no exception. A reviewer looking only at execution success would record a completed task.
+
+Analogous failures recur across the cartographic pipeline. Projections are selected without reference to areal distortion at the area of interest, so polygons are compared by eye at unequal scale. Diverging red–green ramps are applied to ordered quantities, unreadable to a substantial fraction of viewers and non-monotonic in perceived lightness regardless of vision. Bivariate encodings — visually compelling, cognitively expensive — are applied to variable pairs with no spatial cross-correlation whatsoever, producing an image of noise that reads as a pattern. Each of these is a well-documented cartographic error with a well-established remedy. What is new is that they can now be produced automatically, at volume, by systems whose fluency invites trust.
+
+## 1.1 Capability, not correctness, is what the field measures
+
+The autonomous-GIS literature has advanced rapidly. Work in this line has established that language models can decompose spatial tasks, select data sources, generate runnable workflows, and even transfer cartographic style (Li & Ning, 2023; Li et al., 2025; Akinboyewa et al., 2025; Ning et al., 2025; Wang et al., 2025). A parallel benchmark literature has emerged to measure this progress (Krechetova & Kochedykov, 2025) [CITE: GeoAnalystBench].
+
+Across both, the evaluation axis is overwhelmingly **capability**: did the agent complete the task, did the code execute, did a plausible artifact appear. Correctness of the artifact is either inferred from execution success or delegated to model judgment — a second stochastic pass, whether by self-critique or by multimodal aesthetic evaluation. This is not an oversight so much as an inherited assumption from software agents generally, where a program that runs and returns the expected type has largely succeeded. Cartography does not share that property. A map can execute flawlessly and lie.
+
+Independent evidence for the gap comes from within the field: single-pass language models have been observed to produce "syntactically valid but semantically incorrect" geospatial code, including wrong coordinate transforms and inverted band indices [CITE: GISclaw]. Those errors are invisible to execution-success criteria by construction.
+
+Three specific gaps follow.
+
+**G-1. Execution success does not imply cartographic validity.** No widely used agent computes whether a proposed classification is defensible for the distribution it is applied to.
+
+**G-2. Model-judged correctness inherits model failure modes.** Reflection loops and model-as-judge evaluation add stochastic passes. They can improve average behaviour; they cannot *guarantee* a property, and the critic is subject to the same failure modes as the generator.
+
+**G-3. Rejection without remedy does not converge.** A validator that only refuses leaves an unbounded revision loop. Nothing in the current literature makes a veto convergent.
+
+## 1.2 The inversion
+
+The instinctive response to G-1 and G-2 is to make the model a better cartographer — better prompts, domain fine-tuning, a stronger critic. We take the opposite approach: **remove the model's statistical authority entirely.**
+
+In AutoCarto-Agent, the language model reasons about concepts — what kind of map answers this request, which variables, which template, which visual encoding channel. It never receives raw data values. Every numeric decision that determines whether the map is valid — classification breaks, projection, colour assignment, whether a bivariate encoding is warranted at all — is computed by deterministic algorithms that hold veto authority over the model's proposal.
+
+The mechanism that makes this practical, rather than merely restrictive, is the form of the veto. A gate that rejects returns a **prescription**: the mandated method, the precomputed break values, the exact constants, ready to be spliced into the next attempt. The model's remaining task is transcription, not invention. This converts what would otherwise be an open-ended negotiation into a bounded loop — at most three iterations before the system escalates to a human rather than continuing to argue with itself.
+
+The statistics doing the vetoing are deliberately classical: Jenks natural breaks and goodness-of-variance fit, Moran's I and its bivariate extension under permutation inference, Tissot areal distortion, colour-vision simulation. None is novel, and that is the point — their standing is what makes them trustworthy as arbiters. The contribution is architectural: giving classical, computable validity conditions veto power over a generative model, and making that veto convergent.
+
+## 1.3 Contributions
+
+1. **Diagnostic-to-prescriptive rejection.** Validation gates that return executable mandates — precomputed break values, mandated transforms, exact constants — rather than binary verdicts or natural-language critique, converting an unbounded revision loop into bounded transcription (Sections 4.2, 4.4).
+
+2. **Authority separation as a structural invariant.** Every render constant carries a provenance tag; a plan containing any freely generated numeric constant fails validation before code text exists. "The model never decides a number" is therefore checkable in the execution trace rather than asserted (Section 3.2).
+
+3. **Statistical justification of map *type*.** Gate 3b refuses bivariate encoding when variables lack spatial cross-correlation and mandates the univariate fallback — declining a cognitively misleading map choice rather than styling it well (Section 4.4).
+
+4. **A ground-truth corpus for validation decisions.** Forty-two seeded scenarios across all six gates with known-correct outcomes, scoring decision accuracy rather than rejection rate, and including cases that *should* be refused (Section 6.1).
+
+5. **Reproducibility as an enforced property.** Seeded permutation inference with (M+1)/(R+1) pseudo *p*-values, and gate verdicts that are byte-identical across runs (Section 5).
+
+**What we do not claim.** We do not claim the architecture improves outcomes for map readers; no human-subject study was conducted. We do not claim the thresholds are empirically optimal; they are calibratable policy, and we report operating characteristics where ground truth permits and say so plainly where it does not. We do not claim the language model tier is reliable — the entire design assumes it is not.
+
+---
+
+# 2. Related work
+
+## 2.1 Autonomous GIS agents
+
+The framing of "autonomous GIS" — language models that decompose a spatial request into an executable workflow — originates with work that established both the vision and the solution-graph mechanism for realising it (Li & Ning, 2023). A subsequent research agenda formalised the space in terms of autonomy levels, functions, and scales, and identified trust and reliability as open problems (Li et al., 2025). Systems in this line have targeted spatial analysis through tool documentation and execution feedback (Akinboyewa et al., 2025), and autonomous geospatial data retrieval through model-driven source selection (Ning et al., 2025).
+
+These systems share a correctness mechanism: the workflow is correct if it runs, and errors are addressed by retrying against the traceback. That is an appropriate criterion when failure is loud. It is insufficient when failure is silent — when the code executes and the artifact is invalid. Our contribution is orthogonal rather than competing: we adopt the autonomous-GIS vision and invert its trust model, narrowing the domain in exchange for enforceable validity of the artifact.
+
+## 2.2 Language models in cartography
+
+The closest neighbouring work applies multimodal language models to cartographic style transfer and aesthetic evaluation, with a multi-agent design and a human study, and — importantly — a design principle we share: the agent designs the stylesheet and does not modify the underlying data (Wang et al., 2025). Related work has explored natural-language interaction for map design more broadly [CITE: MapMate 2025].
+
+The distinction from our work is clean and worth stating precisely, because it is easily misread as competition. That line evaluates **aesthetics**, and its evaluator is a **multimodal model** (supplemented by human judgment). We evaluate **statistical validity**, and our evaluator is a **deterministic algorithm** with veto authority. These are different axes and different mechanisms; a system could sensibly adopt both, using deterministic gates for validity and model judgment for style. We take the shared "do not touch the data" instinct as convergent evidence that the authority question is the right one to ask, and differ on how far to push it: not merely that the model should not modify data, but that it should not decide any number derived from data.
+
+## 2.3 Neuro-symbolic coupling
+
+Our architecture belongs to a broader family in which a neural component proposes and a symbolic component verifies or solves [CITE: Neuro-Symbolic AI systematic review 2024]. The canonical pattern — the model translates a problem into a formal representation and a symbolic engine decides it — has been demonstrated for logical reasoning [CITE-VERIFY: Pan et al., Logic-LM, EMNLP 2023] and for offloading correctness to a deterministic prover [CITE-VERIFY: Olausson et al., LINC, EMNLP 2023]. Tool-use frameworks similarly position the model as an orchestrator of deterministic components [CITE-VERIFY: Schick et al., Toolformer, NeurIPS 2023; Yao et al., ReAct, 2023].
+
+Within the coupling taxonomy [CITE-VERIFY: Garcez & Lamb, Neuro-symbolic AI], our design is best described as **reasoning-constrains-generation**: the symbolic layer does not merely assist the neural layer or consume its output, it holds exclusive authority over every numerical decision and can refuse the neural layer's proposal outright. The distinguishing element relative to the tool-use line is that our symbolic components are not tools the model calls at its discretion — they are gates the model cannot bypass, and their rejections carry binding constants.
+
+## 2.4 Cartographic validity as computable mathematics
+
+Each gate rests on established cartographic and spatial-statistical scholarship rather than on novel methods. Classification draws on natural-breaks optimisation and goodness-of-variance fit [CITE-VERIFY: Jenks 1967], on the long-understood result that the choice of class intervals changes the map's message [CITE-VERIFY: Coulson 1987], and on head/tail breaks for heavy-tailed distributions [CITE-VERIFY: Jiang 2013]. Spatial structure testing rests on Moran's I [CITE-VERIFY: Moran 1950] and the modern permutation-based toolkit [CITE-VERIFY: Anselin 1995], with the spatial autoregressive model supplying our controlled data-generating process [CITE-VERIFY: Anselin 1988]. Visual encoding follows the visual-variables vocabulary [CITE-VERIFY: Bertin 1983], colour selection follows established colour-vision-safe palette work [CITE-VERIFY: Brewer, ColorBrewer], the cognitive cost of bivariate displays motivates Gate 3b [CITE-VERIFY: MacEachren 1995], and projection distortion follows standard Tissot-based treatment [CITE-VERIFY: Snyder 1987].
+
+One reference deserves particular attention because it bounds a claim we make. Bivariate spatial association has a more rigorous formulation than the bivariate Moran's I with free permutation that we deploy [CITE-VERIFY: Lee 2001]. We adopt the simpler statistic, report its null-model weakness quantitatively (Section 6.6), and treat the stricter formulation as the acknowledged path not yet taken rather than as unrelated work.
+
+## 2.5 Evaluating geospatial agents
+
+The benchmark literature for spatial agents measures task success against reference answers (Krechetova & Kochedykov, 2025) [CITE: GeoAnalystBench]. To our knowledge, none measures the *validity of the produced artifact*, and none includes cases where the correct behaviour is refusal. Our 42-scenario corpus (Section 6.1) is a step in that direction: it scores whether the validator reached the right decision, and roughly half its scenarios are pathological by construction, with refusal as the correct outcome.
+
+## 2.6 Positioning
+
+**Table 3** summarises the comparison along the axis that matters here: what mechanism, if any, establishes that the produced artifact is correct.
+
+**Table 3. Correctness mechanisms in related systems.**
+
+| System class | Primary objective | Correctness mechanism | Relation to this work |
+|---|---|---|---|
+| Autonomous GIS workflow agents (Li & Ning, 2023; Li et al., 2025) | general spatial-analysis workflows | model reasoning + execution success | we narrow the domain to gain enforceable artifact validity |
+| Spatial-analysis copilots (Akinboyewa et al., 2025) | natural-language spatial analysis | tool documentation + retry on execution error | our gates compute statistics and veto; they do not retry on traceback |
+| Autonomous data retrieval (Ning et al., 2025) | geospatial data discovery | source selection + debugging loop | retrieval is one tier of ours, with a spatial-first contract and downstream validation |
+| Multimodal cartographic agents (Wang et al., 2025) | map style transfer, aesthetic quality | multimodal model judgment + human study | different axis (aesthetics vs. statistical validity) and different mechanism (model judgment vs. deterministic veto); complementary |
+| Agent benchmarks (Krechetova & Kochedykov, 2025) [CITE: GeoAnalystBench] | measuring task completion | reference answers | none scores artifact validity or includes refusal as a correct outcome |
+| **This work** | statistically defensible thematic maps | **deterministic gates with veto authority and prescriptive rejection** | — |
+
+The empty region the table identifies is the combination of a narrow, well-codified domain with deterministic, non-negotiable enforcement of artifact validity. Prior autonomous-GIS agents ask whether the model can complete the task. We ask whether the artifact it produces is correct, and answer with computation that holds veto authority over the model.
+
+---
+
+# 3. Architecture
+
+## 3.1 Three tiers and one boundary
+
+AutoCarto-Agent is organised into three tiers separated by an authority boundary (Figure 2).
+
+**Tier 1 — Semantic Engine.** A frozen language-model checkpoint at temperature 0, restricted to cartographic concepts: parsing the request into a mapping intent, selecting the visual encoding channel, selecting a map type and audited render template, and assembling declarative code by filling typed slots. Its inputs are variable *names*, data types, semantic roles, and units — never values. The implementation supports an open-weights model (Llama 3.1 70B, served through a hosted inference endpoint) and a deterministic rule-based client used for offline testing; the two are interchangeable behind one interface.
+
+That interchangeability is not merely an engineering convenience — it is a consequence of the authority design, and it has an evaluative implication used throughout Section 6. Because every gate statistic is computed by Tier 2 from the data and the spatial weights alone, a gate's diagnostics and verdict are invariant to *which* Tier-1 client produced the proposal. The model influences which map is attempted; it cannot influence what the mathematics returns about it.
+
+**Tier 2 — Deterministic Execution Engine.** Ordinary, non-stochastic software. It owns the orchestration loop, runs the six validation gates, computes every classification and statistic, and renders inside an isolated container. Nothing it computes depends on model output except the categorical choices the model is permitted to make.
+
+**Tier 3 — Data Fabric.** Retrieval with a spatial-first contract: a deterministic bounding-box filter runs before semantic ranking, so embedding similarity can never override geometry, followed by exact geometric refinement and a seven-point metadata quality rubric that can refuse insufficiently documented data outright.
+
+The dashed boundary in Figure 2 is the load-bearing element. Two invariants define it: raw data values never cross into Tier 1, and no numeric constant reaches the executed render without deterministic provenance. The first prevents the model from reasoning over data it might misread; the second prevents it from inventing a number even when it has not seen the data.
+
+## 3.2 The provenance contract
+
+The second invariant is enforced structurally rather than by policy. Every constant in the render plan is wrapped in a value object carrying a provenance tag: `GATE_PRESCRIBED` (computed by a gate), `TEMPLATE_DEFAULT` (a fixed constant in an audited template), or `FREE_LLM` (originating from generation). The plan's validation method refuses any plan containing a `FREE_LLM` constant, raising before any code text is produced.
+
+This turns "the model never decides a number" from a claim about intent into a checkable property of the execution trace. An auditor does not need to trust the description of the architecture; they can read the trace and confirm that every numeric constant in the executed code resolves to either a gate computation or an audited template default.
+
+The same discipline governs code generation. The model does not write free-form logic on the render path. It fills named slots in one of three audited templates (choropleth, bivariate choropleth, proportional symbol), and each template declares which completeness elements it guarantees, which Gate 6 then checks. Restricting generation to slot-filling eliminates most of the code-injection surface as a side effect: a template the model cannot alter has no injection surface beyond its slot values, and those are typed and provenance-checked.
+
+## 3.3 Propose–Verify–Execute
+
+The orchestrator drives a bounded state machine.
+
+**Propose.** Tier 1 receives a semantic context — schemas, area of interest, and any prescriptions accumulated from previous rejections — and returns a map proposal.
+
+**Verify.** The gate suite runs in a fixed order chosen so that each gate's preconditions are established by its predecessors: coordinate-system integrity and projection distortion first (they determine whether any area-based computation is meaningful), then spatial-structure tests, then classification, then colour. Every gate returns a uniform result carrying a decision, diagnostics, and — where the decision is a rejection — a prescription. A structural invariant enforces that a rejection cannot be returned without one.
+
+**Mandate.** Rejections are consolidated into a single mandate rather than round-tripped one gate at a time, and returned to Tier 1 for the next iteration. Because the prescription contains the exact constants, the next proposal is a transcription rather than a fresh attempt.
+
+**Execute.** Once no gate rejects, the plan is validated for provenance, code is generated from the audited template, and the result is rendered. A final completeness gate checks the emitted render manifest.
+
+The iteration count is owned by the orchestrator, not the model, and is capped at three. On exhaustion the system produces an insufficiency report for human review rather than continuing. This is the concrete form of the convergence argument: the loop terminates because the space of remaining decisions shrinks to transcription after the first mandate, and terminates unconditionally at the cap regardless.
+
+## 3.4 Execution isolation
+
+Generated code is executed under two distinct mechanisms, and the distinction between them is stated explicitly because conflating them would overclaim.
+
+An abstract-syntax-tree sanitizer runs before execution, rejecting imports outside a whitelist, attribute access into reflection chains, and write-mode file operations. This is a **cost-raiser**, not a boundary; static blacklists are bypassable in principle and we do not claim otherwise.
+
+The boundary is a container: Docker with a gVisor runtime, no network namespace, all capabilities dropped, non-root, no shell, read-only filesystem. Section 6.7 reports the red-team evaluation of that boundary, conducted with the sanitizer deliberately disabled so that the container alone was under test.
+
+---
+
+# 4. The validation gate suite
+
+Six gates run against every proposal. **Table 1** summarises each gate's statistic, threshold, threshold provenance, and the prescription it issues on rejection. Two gates carry the methodological weight of the contribution and are treated first.
+
+**Table 1. The validation gate suite.**
+
+| Gate | Statistic | Threshold | Provenance | Prescription on rejection |
+|---|---|---|---|---|
+| G1 CRS integrity | CRS presence, equal-area property for area-normalised roles | must be projected/equal-area for density and rate variables | cartographic requirement | reproject to a named equal-area CRS for the area of interest |
+| G2 Classification | zero fraction, skewness, unique-value count, outlier share, GVF | 40% zeros · \|skew\| 1.5 · ≤10 unique · >10% outliers · GVF ≥ 0.6 | convention + pilot; rate curves in §6.5 | mandated method **and precomputed break values** |
+| G3a Spatial structure | global Moran's I, queen contiguity, permutation inference | \|I\| > 0.1 | ROC AUC 0.9149 (§6.5) | proportional-symbol or dot encoding instead of choropleth |
+| G3b Bivariate justification | bivariate Moran's I_xy + Spearman ρ, 199 permutations | \|I_xy\| > 0.15 **and** \|ρ\| > 0.20 | ROC AUC 0.9569 / 0.9978 (§6.5) | side-by-side univariate maps |
+| G4 Projection distortion | Tissot areal distortion over the AOI | max areal exaggeration ≤ 20% | policy; rate curve in §6.5 | ranked alternative CRS candidates |
+| G5 Colour accessibility | CVD simulation (deutan/protan/tritan), adjacent-class ΔE; WCAG contrast | ΔE ≥ 10.0; contrast ≥ 4.5:1 | colour-science convention | verified colour-vision-safe palette at the requested class count |
+| G6 Completeness | render-manifest element checklist | required elements per map type | cartographic convention | add the missing elements |
+
+## 4.1 Why a uniform rejection contract matters
+
+All six gates return the same result type, and a structural invariant forbids a rejection without an attached prescription. This is not an implementation convenience; it is what makes the convergence argument hold. A suite in which some gates could refuse without remedy would reintroduce the unbounded loop for exactly those gates.
+
+## 4.2 Gate 2 — classification as diagnosis, not filtering
+
+Gate 2 is the gate around which the architecture was designed, and it is deliberately not a pass/fail test.
+
+It first *profiles* the variable: the fraction of exact zeros, distributional skew, the count of distinct values, outlier share, and the goodness-of-variance fit attained by the proposed breaks. From that profile it identifies a regime — well-behaved, zero-inflated, heavy right skew, negative-support skew, outlier-dominated, or discrete-ordinal — and each regime carries a specific remedy. **Figure 3** shows the diagnostic across five regimes, with the proposed and prescribed break positions overlaid on each distribution.
+
+On rejection the gate returns the mandated method **and the computed break values themselves**, together with an instruction that explicitly forbids proposing alternatives. Figure 7 reproduces one such rejection verbatim from the emitted trace. This is the difference between validation that critiques and validation that prescribes: the model is not asked to try again, it is told what to write.
+
+Two regimes illustrate why the diagnosis must precede the remedy. A zero-inflated variable (in our demonstration corpus, 49.8% exact zeros) cannot be fixed by any smooth transform; the prescription is an explicit break at zero followed by natural breaks on the non-zero tail. A variable with negative support cannot be log-transformed at all — a naive log would silently clamp or drop observations — so the prescription is the inverse hyperbolic sine with back-transformed breaks [CITE-VERIFY: Burbidge, Magee & Robb 1988]. A single "apply a log transform" rule would corrupt the second case while appearing to work.
+
+## 4.3 Gate 3a — is a choropleth warranted at all?
+
+A choropleth's message is its spatial pattern. If a variable exhibits no spatial autocorrelation, the pattern a reader perceives is noise, and shading regions by value invites an inference the data does not support. Gate 3a computes global Moran's I under queen contiguity with permutation inference and, below threshold, prescribes a proportional-symbol or dot encoding — representations that display magnitude without implying spatial contiguity.
+
+The gate rejects an *encoding*, never the analysis. A spatially random phenomenon remains worth mapping; it is the choropleth specifically that misrepresents it.
+
+## 4.4 Gate 3b — is a bivariate encoding warranted?
+
+Bivariate choropleths are cognitively demanding and visually persuasive, a combination that makes an unjustified one particularly damaging. Gate 3b requires that two conditions hold jointly before the encoding is permitted: a bivariate Moran's I_xy above 0.15 in magnitude, evaluated against a 199-permutation null with pseudo *p*-values computed as (M+1)/(R+1), **and** an aspatial Spearman ρ above 0.20 in magnitude.
+
+Requiring both an effect size and an aspatial correlation, rather than significance alone, is a deliberate defence against the known liberality of the free-permutation null (Section 6.6): the decision never rests on the *p*-value by itself. On rejection the gate mandates side-by-side univariate maps — the analysis proceeds, but the misleading joint encoding does not. **Figure 4** shows the three regimes the gate distinguishes — strong coupling, weak coupling, and independence — and the verdict each receives.
+
+## 4.5 Gates 1, 4, 5, and 6
+
+**Gate 1** verifies that a coordinate reference system exists and, for variables whose semantic role is area-normalised (densities and rates), that it is equal-area. The check is deliberately role-conditional: a count variable is not area-normalised and does not require an equal-area CRS for its own sake, so applying the constraint universally would produce false rejections.
+
+**Gate 4** computes Tissot areal distortion across the area of interest and rejects projections exceeding 20% maximum areal exaggeration for area-comparison maps, returning ranked alternatives measured over the same extent.
+
+**Gate 5** simulates the three principal colour-vision deficiency types at the dichromatic limit and requires a minimum perceptual distance between adjacent classes, alongside a WCAG contrast check for text. On rejection it prescribes a verified safe palette at the requested class count. The scope of this gate is worth stating precisely, because it is narrower than "the colours are good": it measures *discriminability under simulated colour-vision deficiency*, not connotative appropriateness or perceptual ordering. A rainbow ramp can pass the adjacent-class discriminability test at moderate class counts while still failing as a sequential encoding for the separate reason that its lightness is non-monotonic. We report this rather than implying the gate catches more than it does.
+
+**Gate 6** checks the render manifest emitted by the template against the required-element list for the map type — title, legend, scale indication, coordinate-system note, data citation, and classification note. It is a declarative checklist over what the template guarantees, not pixel inspection, which places the burden of manifest honesty on the audited templates rather than on inference from the image.
+
+That burden is a real weakness, and we can demonstrate it rather than merely concede it. During development we found two instances in which a template's declared guarantee had drifted from what its code actually drew. In the first, the choropleth template declared a classification note it never rendered; in the second, the bivariate template declared a `bivariate_legend` while containing no legend-drawing code at all. In both cases Gate 6 read the manifest, found every required element present, and returned PASS with an empty missing-element list — for a bivariate choropleth whose 3×3 colour key was absent, which is to say for a map whose colours were uninterpretable. Both were found by comparing a rendered artifact against its own trace, not by any automated check, and both are fixed (the legend is now constructed from the same palette constant the renderer uses to colour the polygons, so key and map cannot diverge). The episode delimits the guarantee precisely: Gate 6 verifies that a template *claims* completeness, and the claim is only as good as the audit of the template. Pixel-level verification would close the gap at the cost of the property that makes the checklist cheap and deterministic; we regard the trade as open rather than settled.
+
+---
+
+# 5. Reproducibility and determinism
+
+Reproducibility is treated here as an enforced property of the system rather than a description of good practice, because it is the property that makes the validation claim auditable.
+
+**Seeded inference.** All permutation tests use seeded pseudo-random number generation, and pseudo *p*-values are computed as (M+1)/(R+1) rather than M/R, so a *p*-value of exactly zero is not reportable and the discreteness of the null distribution is respected.
+
+**Pinned data.** Geometry and both real variables are pinned snapshots with SHA-256 checksums recorded in a manifest, so a re-run refers to the same inputs rather than to whatever a remote service currently serves.
+
+**Machine-readable traces.** Each run emits a JSON trace recording every proposal, every gate's diagnostics and decision, every prescription, and the resulting revision. Figure 7 reproduces a fragment. The trace is the audit surface for the provenance invariant of Section 3.2: an examiner can verify that each numeric constant in the executed code traces to a gate computation or an audited template default.
+
+**Byte-identical gate verdicts.** Re-running the deterministic pipeline reproduces the gate verdict files byte for byte.
+
+This last claim requires a scope statement, and we state it rather than leaving it to be discovered. The pipeline writes four trace files. The two recording gate decisions, diagnostics, and prescriptions are byte-identical across runs. The two recording retrieval and sandbox execution are **not**: they embed wall-clock timing fields, which vary by construction. Timing is physically non-deterministic; the decisions are what the determinism claim concerns. Accordingly we claim byte-identical *gate verdicts*, never byte-identical *traces* — the broader phrasing would be true only under a careful reading and false under the natural test of comparing every file.
+
+**Test suite.** The implementation carries 249 passing tests, with 33 skipped where a live network, Docker, or gVisor dependency is unavailable in the executing environment. Every gate branch has an explicit test. We deliberately do not report a coverage percentage: no coverage tool has been run, and quoting a number we have not measured would be precisely the class of unfalsifiable claim this architecture exists to prevent.
+
+---
+
+# 6. Evaluation
+
+The evaluation answers four questions: whether the gates decide correctly against known ground truth (§6.1), whether the constrained pipeline produces defensible maps in a controlled setting where the truth is known (§6.2–6.3) and on real data where it is not (§6.4), how sensitive the verdicts are to threshold choice (§6.5), and where the inference is weakest (§6.6).
+
+## 6.1 Decision accuracy against ground truth
+
+Evaluating a validator requires knowing the right answer in advance, which real data cannot supply. We therefore constructed a corpus of 42 seeded scenarios spanning all six gates, each labelled with the outcome a correct validator should reach. Roughly half are pathological by construction — the correct behaviour is refusal.
+
+Of the 42, three are borderline by construction; these are reported but not scored, since forcing a verdict on a deliberately ambiguous case would measure the threshold rather than the decision. On the remaining 39:
+
+**Table 2. Decision accuracy on the ground-truth corpus.**
+
+| Measure | Result |
+|---|---|
+| Strict decision accuracy | **38 / 39 (97.4%)** |
+| Benign inputs (correct outcome: accept) | 17 / 17 |
+| Pathological inputs (correct outcome: reject) | 21 / 22 |
+| Borderline, reported not scored | 3 |
+| Rejections by cause | heavy right skew 6 · discrete-ordinal 3 · zero-inflated 3 · G3a white noise 3 · G3b independent 2 · G3b weak coupling 1 · G4 Web-Mercator (CONUS) 1 · G4 Web-Mercator (Georgia) 1 · G5 red–green diverging 1 · G1 geographic density 1 |
+
+The single miss is disclosed rather than aggregated away: a Gate 3b scenario in which two independently generated fields, each individually autocorrelated, produced a spurious cross-correlation strong enough to pass. Section 6.6 identifies the cause and quantifies it.
+
+The corpus-wide rejection rate is 22 of 42 (52.4%). We report this figure only alongside the corpus composition, because it is a property of an adversarial corpus rather than a natural rejection rate, and quoting it without that context would be meaningless. Figure 6 shows the routing structure — every rejection terminating in a specific prescription — for the Gate 2 and Gate 3b subset of this corpus (24 of the 42 scenarios). The restriction is deliberate: those two gates are the ones whose rejections carry a *choice* of prescription, and the flow diagram exists to show that every veto terminates in a specific remedy rather than a dead end. The figure is generated from the same benchmark run as Table 2, filtered to those gates, so the two cannot disagree.
+
+## 6.2 Controlled case: 530 Atlanta tracts
+
+The controlled case uses real geometry and topology (530 census tracts across two Georgia counties, with queen-contiguity weights) carrying two seeded spatially autoregressive variables, generated as *y* = (I − ρW)⁻¹ε and labelled *tree-canopy loss* and *asthma hospitalisation rate*. The synthetic construction is the point: because the data-generating process fixes the true spatial structure, "the gate decided correctly" is a checkable statement. Real data cannot support that check.
+
+> **A note on nomenclature, to prevent a conflation.** The variable labelled "asthma hospitalisation rate" in this controlled case is a *synthetic* field carrying a plausible name; it is not measured health data and must not be read as such. The real asthma measure — CDC PLACES asthma prevalence — appears only in §6.4, alongside real income. The two cases share geometry and nothing else.
+
+Both variables are heavily right-skewed. Gate 2 rejected the naive quintile-derived proposal for each and prescribed a log transform followed by Jenks natural breaks. Goodness-of-variance fit rose from **0.7514 to 0.8348** for canopy loss and from **0.7741 to 0.8607** for the synthetic rate variable.
+
+Gate 3b then evaluated whether a bivariate encoding was justified: bivariate Moran's I_xy = **+0.3262** (pseudo-*p* = 0.0050, 199 permutations) and Spearman ρ = **+0.9471**, both above threshold, yielding APPROVE. Only then was the bivariate map produced (Figure 5).
+
+## 6.3 Ablation: what the gates prevent
+
+Figure 1 isolates the effect of the classification gate on a single variable. Under the unconstrained proposal — equal-interval breaks — **414 of 530 tracts (78%) fall into one class**. Under the gated pipeline, the prescribed log-plus-Jenks classification produces balanced classes of **98, 134, 145, 90, and 63** tracts.
+
+One result here runs against the system's own interest, and we report it in the main text rather than a footnote. The rejected equal-interval classification attains a **higher** goodness-of-variance fit than the prescribed one (0.866 versus 0.835). A validator that maximised GVF would have preferred the map that hides the pattern.
+
+This is evidence for what Gate 2 is: a distribution *diagnostic* that selects a method appropriate to the distribution's shape, not an optimiser of a single fit statistic. It also answers the natural objection that the gate is a thresholded GVF filter — if it were, it would have accepted the worse map. The honest failure metric in this comparison is class balance, and we use it.
+
+## 6.4 Real-data case: does it work on data nobody engineered?
+
+The controlled case establishes that the gates decide correctly. It cannot establish that the system is useful on data with unknown structure. For that, the same gates — unmodified — were run against real Census American Community Survey median household income and real CDC PLACES asthma prevalence for the same tracts. Eleven of the 530 tracts lacked an estimate for one or both variables and were **dropped rather than imputed**, leaving 519; imputation would have manufactured structure the gates would then have validated against data that was never measured.
+
+Gate 3a confirmed real univariate spatial clustering in income (Moran's I = **0.59**, *p* = 0.001). Gate 3b returned bivariate Moran's I_xy = **−0.5555** (*p* = 0.005) and Spearman ρ = **−0.7758**, and approved the bivariate encoding.
+
+The recovered pattern — higher income co-locating with lower asthma prevalence — is a documented health-equity gradient. The system was not directed toward it; it was asked to map two variables and determined that their joint encoding was statistically justified. We claim this as evidence that the constrained pipeline produces defensible maps on unengineered data, not as an epidemiological finding.
+
+## 6.5 Threshold sensitivity
+
+Every threshold in Table 1 is policy rather than physics, and the honest question is how much the verdicts move when the policy moves. Where ground truth exists, we report operating characteristics (Figure 8).
+
+For Gate 3a, against seeded ground truth defined by the generating autocorrelation parameter, the ROC area under the curve is **0.9149** (n = 240). For Gate 3b, against ground truth defined by the coupling weight, the AUC is **0.9569** for bivariate Moran's I_xy and **0.9978** for Spearman ρ (n = 165). Both gates are therefore well separated from chance across a wide range of threshold choices, and the deployed thresholds do not sit at a cliff.
+
+For Gates 2 and 4 we report rejection-rate curves rather than ROC curves, because no independent ground truth for "an acceptable classification" or "an acceptable level of areal distortion" exists beyond the metric being thresholded. Constructing one would require the human-preference study we have not conducted. This is a limit on what can currently be calibrated, and we state it rather than substituting a curve that would imply more than it measures.
+
+## 6.6 Where the inference is weakest
+
+Gate 3b's default null model permutes one variable freely. For two variables that are each spatially autocorrelated, this null is liberal: it destroys the spatial structure of the permuted variable, so the reference distribution is narrower than it should be and significance is overstated.
+
+We quantified this with a 999-permutation comparison against a conditional alternative — a toroidal shift, which preserves the permuted variable's own spatial autocorrelation exactly and randomises only its alignment with the other variable.
+
+**Table 4. Null-model comparison (9 scenarios, 999 permutations).**
+
+| Null model | False positives (α = 0.05) | False negatives |
+|---|---|---|
+| Free permutation (default) | 2 | 0 |
+| Conditional toroidal shift | 1 | 1 |
+
+Mean *p*-value inflation on the independent regime under the free-permutation null was **18.97×**. The conditional null removed one false positive — including the corpus miss reported in §6.1 — and introduced one false negative, as a genuinely related pair fell below significance under the stricter reference distribution.
+
+Two design consequences follow, and we state both. First, this is why Gate 3b's decision rule requires effect size *and* aspatial correlation rather than significance alone: the decision matrix does not read the *p*-value, so the liberality of the null does not by itself admit a bad map. Second, we have **not** wired the conditional null into the default decision path. Doing so would trade a false positive for a false negative and would require its own calibration; making that trade silently would be worse than disclosing it. The stricter formulation in the bivariate spatial association literature [CITE-VERIFY: Lee 2001] remains the acknowledged path not yet taken.
+
+## 6.7 Execution boundary
+
+The container boundary was evaluated by red team rather than by inspection. Twenty-seven attack vectors — network exfiltration, filesystem writes, privilege escalation, resource exhaustion, reflection-based escapes, and raw syscalls — were executed against the sandbox **with the static sanitizer deliberately disabled**, so that the container alone was under test. All 27 were blocked, verified in continuous integration against a real gVisor runtime rather than on a developer machine.
+
+We claim 27 of 27 tested vectors. We do not claim the boundary is unbreakable: an unknown vector or a runtime vulnerability remains possible in principle, and a universal claim would be unfalsifiable.
+
+---
+
+# 7. Discussion
+
+## 7.1 When to constrain rather than extend
+
+The prevailing response to unreliable model output is to improve the model: better prompts, domain fine-tuning, a stronger critic. Those interventions shift a distribution of behaviour. They cannot establish a property.
+
+The distinction matters whenever the cost of a silent failure is high and the validity condition is *computable*. Thematic cartography satisfies both: an invalid map is persuasive precisely because it looks finished, and the conditions that make it invalid have been formalised for decades. Under those circumstances, constraining the generator is strictly stronger than improving it — and the two are not rivals. A better model converges in fewer iterations; the gates determine what is shippable regardless of which model is behind them. Swapping the checkpoint does not disturb the guarantees, which is a practical property in a field where models are replaced every few months.
+
+The converse is equally worth stating: where validity is genuinely a matter of judgment — aesthetic quality, narrative emphasis, audience fit — this architecture has nothing to offer, and model judgment or human review is the appropriate mechanism. The gates encode communication validity, not taste.
+
+## 7.2 Why prescription, not just rejection
+
+The convergence property does not come from the veto; it comes from the form of the veto. A validator that returns "rejected: classification unsuitable" leaves the model to guess again, and there is no reason for the second guess to be better than the first. A validator that returns the mandated method together with the computed break values leaves nothing to guess.
+
+This reframes the agent's role. Once a prescription exists, the model is not a cartographer being corrected; it is an assembler transcribing constants into an audited template. That is a smaller role than the autonomous-agent literature typically assigns, and deliberately so — it is the role for which a stochastic component is actually well suited.
+
+## 7.3 Refusing the map, not the analysis
+
+Gates 3a and 3b refuse *encodings*, never questions. A spatially random phenomenon still merits mapping; what it does not merit is a choropleth, whose visual grammar asserts spatial contiguity. Two unrelated variables still merit analysis; what they do not merit is a bivariate encoding, which asserts joint structure.
+
+In both cases the gate mandates an alternative representation, so the user's question is still answered. This distinguishes the system from a filter: it is opinionated about representation, not obstructive about inquiry. The three-iteration cap and subsequent escalation to a human are the corresponding admission that the system's opinion is not final.
+
+## 7.4 Transferability
+
+The pattern generalises to any setting combining a fluent generator, codified validity conditions, and no current enforcement: interpolation with assumptions that can be tested, hotspot detection with multiple-comparison corrections that can be applied, cluster labelling with stability that can be measured. In each case the same three components transfer — a typed proposal contract, deterministic gates with veto authority, and prescriptive rejection carrying computed constants.
+
+We demonstrate the pattern in one domain and argue rather than demonstrate its transfer. Thematic cartography was chosen as the cleanest demonstrator precisely because its validity rules are already formalised; domains where they are not would first require that formalisation, which is substantial work in itself.
+
+## 7.5 What deterministic validation cannot do
+
+Three limits are structural rather than incidental.
+
+The gates verify *properties of the artifact*, not *fitness for the user's purpose*. A map can pass all six gates and answer the wrong question — and during development one did. A request naming a variable the dataset did not contain was handled by the intent validator exactly as designed: names absent from the schema are dropped, which is what stops the model inventing columns. With nothing left to map, however, the resolver fell back to the first available variable and produced a choropleth of a different subject entirely. All six gates passed it, the render succeeded, and the trace recorded the original prompt beside the substituted variable without flagging the discrepancy, because no gate is defined over the relationship between the request and the artifact. The result was a confident, fully validated map of something nobody asked for.
+
+This is worth stating plainly because it marks the boundary of the contribution. Validity and responsiveness are different properties, and an architecture that enforces the first with deterministic rigour can still fail the second silently — arguably more dangerously than an unconstrained system, since every check it does perform reports success. Our fix was to refuse: a request that cannot be resolved to available variables now raises rather than substituting, and the orchestrator returns an insufficiency report instead of a map. That is a repair to the intent layer, not to the gate suite, and it does not generalise. A request that resolves to a real but inappropriate variable would still pass, and no computation in this architecture would notice.
+
+The gates encode thresholds, and thresholds are policy. We report operating characteristics where ground truth allows (§6.5) and decline to manufacture them where it does not. An organisation adopting this architecture inherits our defaults and should calibrate them.
+
+Finally, the architecture constrains what the model may decide, not what the data means. Gate 3b established that income and asthma prevalence are spatially cross-correlated in Atlanta; it has nothing to say about why, and the system's approval of that map is not an epidemiological claim.
+
+---
+
+# 8. Limitations and future work
+
+The limitations below are claims about what was not measured, and they are as verified as the positive results.
+
+**No large-scale natural-language prompt benchmark.** The 42-scenario corpus scores *gate decisions* on seeded inputs. It does not measure how the system handles a large, labelled set of natural-language requests routed through a hosted model. Building one would require many paid API calls and was deliberately bounded out. This is the largest single evidence gap in the paper: end-to-end runs with a real open-weights model are demonstrated (§6.4) but not measured at scale.
+
+**Convergence is bounded by construction, not characterised empirically.** The three-iteration cap guarantees termination, and observed end-to-end runs converged in two iterations. We do not report a distribution of iteration counts over a large prompt sample — that requires the benchmark above.
+
+**Test coverage is unmeasured.** Every gate branch has an explicit test and 249 tests pass, but no coverage tool has been run and no percentage is claimed.
+
+**Scale.** Spatial weights are dense matrices, practical to roughly 10⁴ features. The gates' verdicts are unaffected by scale; only the executor would need to change (sparse weights, then a spatial database, then a distributed engine). This is an engineering limit, not a methodological one, but it bounds the settings in which the current implementation is directly usable.
+
+**Null-model liberality.** Quantified in §6.6 rather than merely acknowledged: 18.97× mean *p*-value inflation on the independent regime, one corpus false positive attributable to it. The conditional alternative is implemented and opt-in, with its own cost of one false negative. Adopting the more rigorous bivariate spatial association formulation [CITE-VERIFY: Lee 2001] is the natural next step and would require recalibrating the decision matrix.
+
+**Thresholds for Gates 2 and 4 are uncalibrated.** ROC analysis exists for the two spatial-structure gates; for classification and projection distortion no independent ground truth exists, and only rejection-rate curves are reported.
+
+**Single domain.** Transferability is argued (§7.4), not demonstrated.
+
+**No human-subject evaluation.** Whether validated maps are better understood, better trusted, or preferred by readers and expert cartographers is untested. This is the most consequential open question for the architecture's practical claim, since the entire premise is that certain maps mislead readers — a premise grounded in the cartographic literature but not re-established experimentally here.
+
+**Split execution paths.** The orchestrator's render path executes in-process; the gVisor container is a separately tested standalone boundary (§6.7). Unifying them is straightforward engineering but is not yet done, and the paper does not claim that the end-to-end pipeline currently runs inside the tested container.
+
+## Future work
+
+The priorities follow directly from the gaps. A labelled natural-language prompt corpus, scored against expected gate outcomes and including requests that should be refused, would close the largest gap and would additionally constitute a validity benchmark of independent value — the existing benchmark literature measures task success, and none measures artifact validity. A human-subject study comparing gated and ungated outputs would ground the default thresholds in expert preference rather than convention. Adopting a conditional null throughout, with a recalibrated decision matrix, would strengthen the bivariate inference. Sparse weights and a routed compute backend would lift the scale ceiling.
+
+---
+
+# 9. Conclusion
+
+As language models move from assisting cartographers to autonomously producing maps, evaluation has remained fixed on capability: does the code run, does a map appear. We have argued that the missing question is correctness of the artifact, and that in thematic cartography correctness is not a matter of model judgment but of computable mathematics.
+
+AutoCarto-Agent answers that question architecturally. The model proposes; deterministic algorithms compute every number, refuse invalid proposals, and return executable prescriptions that make the refusal convergent. Authority separation is enforced by a typed contract rather than by instruction, and is auditable from the trace. On a corpus where the correct decision is known in advance, the gates decide correctly in 38 of 39 scored cases; on real data they recover a documented spatial health gradient; and in ablation they prevent a classification that would have concealed the pattern in 78% of the study area while scoring better on the fit statistic a naive validator would have optimised.
+
+The evidence does not extend to human outcomes, to large-scale prompt handling, or to calibrated thresholds for every gate, and we have said so precisely. What the evidence does support is a pattern that transfers beyond this domain: where a fluent generator meets codified validity conditions, the productive design is not a more careful generator but a deterministic layer with veto authority — and a veto that arrives with its own remedy.

@@ -1,0 +1,7 @@
+# 9. Conclusion
+
+As language models move from assisting cartographers to autonomously producing maps, evaluation has remained fixed on capability: does the code run, does a map appear. We have argued that the missing question is correctness of the artifact, and that in thematic cartography correctness is not a matter of model judgment but of computable mathematics.
+
+AutoCarto-Agent answers that question architecturally. The model proposes; deterministic algorithms compute every number, refuse invalid proposals, and return executable prescriptions that make the refusal convergent. Authority separation is enforced by a typed contract rather than by instruction, and is auditable from the trace. On a corpus where the correct decision is known in advance, the gates decide correctly in 38 of 39 scored cases; on real data they recover a documented spatial health gradient; and in ablation they prevent a classification that would have concealed the pattern in 78% of the study area while scoring better on the fit statistic a naive validator would have optimised.
+
+The evidence does not extend to human outcomes, to large-scale prompt handling, or to calibrated thresholds for every gate, and we have said so precisely. What the evidence does support is a pattern that transfers beyond this domain: where a fluent generator meets codified validity conditions, the productive design is not a more careful generator but a deterministic layer with veto authority — and a veto that arrives with its own remedy.

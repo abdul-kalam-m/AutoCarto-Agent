@@ -1,0 +1,134 @@
+% AutoCarto-Agent -- DRAFT manuscript
+% Venue-neutral: standard article class, no journal template, no venue named.
+% Build:  latexmk -pdf main.tex
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+% Every figure in this document is PNG, so the automatic EPS-to-PDF
+% conversion hook is dead weight. Declaring this before graphicx is
+% epstopdf-base's own documented opt-out; it also avoids a hard dependency
+% on grfext, which is absent from minimal TeX installs (including the one
+% used to build this draft) and cannot be added there without a full
+% cross-release upgrade.
+\newcommand{\DoNotLoadEpstopdf}{}
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb}
+\usepackage[hidelinks]{hyperref}
+% Author-year citations. references.bib holds only entries retrieved from
+% CrossRef by DOI; works still carrying [CITE:]/[CITE-VERIFY] markers in the
+% text are deliberately absent rather than written from memory.
+\usepackage[round]{natbib}
+\bibliographystyle{plainnat}
+
+% parskip/caption/microtype are not in the minimal TeX install used to build
+% this draft and are purely cosmetic; their effects are reproduced inline so
+% the document compiles on a bare distribution.
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt plus 2pt minus 1pt}
+\setlength{\emergencystretch}{3em}
+\sloppy
+
+\title{\textbf{AutoCarto-Agent: Deterministic Spatial Validation\\for Autonomous Thematic Cartography}}
+\author{Abdul Kalam Mustaq\\[2pt]
+\small Edward J. Bloustein School of Planning and Public Policy\\
+\small Rutgers University--New Brunswick\\
+\small \texttt{ar.abdulkalam.mustaq@gmail.com}}
+\date{Draft of \today}
+
+\begin{document}
+\maketitle
+
+\begin{center}
+\fbox{\parbox{0.9\textwidth}{\centering\small
+\textbf{DRAFT MANUSCRIPT} --- not submitted. No target venue selected; formatting is
+venue-neutral. References marked \texttt{[CITE]} / \texttt{[CITE-VERIFY]} are
+deliberate markers, not omissions: no bibliographic entry has been written without
+confirmation against a publisher record. See \texttt{CITATION\_GAPS.md}.}}
+\end{center}
+
+\vspace{1em}
+
+\begin{abstract}
+\input{abstract}
+\end{abstract}
+
+\noindent\textbf{Keywords:} \input{keywords}
+
+\vspace{1em}
+
+\input{body}
+
+\clearpage
+\section*{Figures}
+
+\begin{figure}[htbp]\centering
+\includegraphics[width=\textwidth]{figures/ungated_vs_gated.png}
+\caption{\textbf{Identical data, identical geometry, opposite outcomes.} Left: an
+unconstrained proposal collapses 414 of 530 tracts (78\%) into one class. Right:
+Gate 2 prescribes a log transform plus Jenks natural breaks, yielding balanced
+classes [98/134/145/90/63]. The rejected classification attains a \emph{higher}
+goodness-of-variance fit (0.866 vs 0.835); class balance, not GVF, is the honest
+failure metric.}
+\end{figure}
+
+\begin{figure}[htbp]\centering
+\includegraphics[width=\textwidth]{figures/architecture_boundary.png}
+\caption{\textbf{Three-tier architecture and the authority boundary.} Raw data
+values never cross into Tier 1, and no numeric constant reaches the executed
+render without deterministic provenance.}
+\end{figure}
+
+\begin{figure}[htbp]\centering
+\includegraphics[width=\textwidth]{figures/gate2_distribution_diagnostics.png}
+\caption{\textbf{Gate 2 distribution diagnostics across five regimes,} with
+proposed and prescribed break positions overlaid.}
+\end{figure}
+
+\begin{figure}[htbp]\centering
+\includegraphics[width=\textwidth]{figures/gate3b_bivariate_scenarios.png}
+\caption{\textbf{Gate 3b decision triptych:} strong coupling, weak coupling, and
+independence, yielding APPROVE, WARN, and REJECT.}
+\end{figure}
+
+\begin{figure}[htbp]\centering
+\includegraphics[width=\textwidth]{figures/atlanta_results_panel.png}
+\caption{\textbf{Controlled Atlanta case.} Bivariate encoding unlocked only after
+Gate 3b confirmed cross-correlation ($I_{xy}=+0.3262$, pseudo-$p=0.0050$, 199
+permutations; Spearman $\rho=+0.9471$).}
+\end{figure}
+
+\begin{figure}[htbp]\centering
+\includegraphics[width=\textwidth]{figures/rejection_sankey.png}
+\caption{\textbf{Rejection flow: every veto routed to a remedy.} Depicts the
+earlier 24-scenario corpus, not the 42-scenario corpus of Table 2; included to
+show routing structure, not the accuracy result.}
+\end{figure}
+
+\begin{figure}[htbp]\centering
+\includegraphics[width=0.85\textwidth]{figures/trace_excerpt.png}
+\caption{\textbf{One rejection, end to end,} quoted verbatim from the emitted
+JSON trace.}
+\end{figure}
+
+\begin{figure}[htbp]\centering
+\includegraphics[width=\textwidth]{figures/threshold_sensitivity.png}
+\caption{\textbf{Threshold operating characteristics.} ROC for Gate 3a
+(AUC 0.9149) and Gate 3b (AUC 0.9569 for $I_{xy}$, 0.9978 for $\rho$). Gates 2
+and 4 admit no independent ground truth and are shown as rejection-rate curves.}
+\end{figure}
+
+\clearpage
+\section*{References}
+\textit{Partial bibliography.} The entries below were retrieved from CrossRef
+by DOI and are verified publication records. Works cited in the text as
+\texttt{[CITE:]} or \texttt{[CITE-VERIFY]} are deliberately absent: their
+records could not be confirmed from this environment, and no entry in this
+draft was written from memory. See \texttt{CITATION\_GAPS.md}.
+\vspace{0.5em}
+\renewcommand{\refname}{}
+\bibliography{references}
+
+\end{document}
