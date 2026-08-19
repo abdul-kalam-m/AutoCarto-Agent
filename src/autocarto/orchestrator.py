@@ -423,6 +423,14 @@ class Orchestrator:
             x = dataset.variables[proposal.variables[0]]
             y = dataset.variables[proposal.variables[1]]
             exec_globals["bivariate_colors"] = self._bivariate_tertile_colors(x, y)
+            # The 3x3 key must be built from the same 9 colours the polygons
+            # were filled from. Binding it here rather than as a template
+            # slot keeps a single source: _bivariate_tertile_colors reads
+            # this same constant, so the legend cannot drift from the map
+            # (note the render plan's palette may differ after a Gate 5
+            # prescription, which returns a 3/5/7-class diverging ramp that
+            # is not a 3x3 grid and is not what the polygons use).
+            exec_globals["bivariate_palette"] = list(_BIVARIATE_DEFAULT_PALETTE)
         elif proposal.map_type == "proportional_symbol":
             exec_globals["values"] = np.asarray(dataset.variables[primary_var], dtype=float)
         return exec_globals
@@ -473,9 +481,14 @@ class Orchestrator:
         for r in suite.results:
             if r.gate_id == "G3b":
                 d = r.diagnostics
+                # Spelled out rather than "I_xy=..., rho=..., PASS": this
+                # string is printed on the map itself, where a reader has no
+                # access to the variable names behind the symbols.
                 return (
-                    f"I_xy={d.get('bivariate_morans_i', 0):+.3f}, "
-                    f"rho={d.get('spearman_rho', 0):+.3f}, {r.decision}"
+                    f"Bivariate Moran's I = {d.get('bivariate_morans_i', 0):+.3f} "
+                    f"(p = {d.get('bivariate_morans_p', 0):.3f})   ·   "
+                    f"Spearman ρ = {d.get('spearman_rho', 0):+.3f}   ·   "
+                    f"Gate 3b: {r.decision}"
                 )
         return ""
 

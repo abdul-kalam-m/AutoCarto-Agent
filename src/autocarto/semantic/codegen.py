@@ -63,6 +63,43 @@ ax.text(_bar_x0 + _bar_len / 2, _bar_y0, _bar_label,
         ha="center", va="bottom", fontsize=6)
 '''
 
+# Panel-anchored variant of the scale bar: same nice-number snapping, but
+# drawn in figure coordinates below a legend panel instead of over the map.
+# Expects `_panel_x` / `_panel_y` (figure coords) to already be defined.
+_SCALE_BAR_PANEL_SNIPPET = '''\
+_xmin, _ymin, _xmax, _ymax = gdf.total_bounds
+_raw_bar_len = (_xmax - _xmin) * 0.2
+_bar_is_projected = gdf.crs is not None and gdf.crs.is_projected
+if _raw_bar_len > 0:
+    _exp = _math.floor(_math.log10(_raw_bar_len))
+    _frac = _raw_bar_len / 10 ** _exp
+    _nice_frac = 1 if _frac < 1.5 else (2 if _frac < 3 else (5 if _frac < 7 else 10))
+    _bar_len = _nice_frac * 10 ** _exp
+else:
+    _bar_len = _raw_bar_len
+_bar_display_len = _bar_len / 1000 if _bar_is_projected else _bar_len
+_bar_unit_label = "km" if _bar_is_projected else "deg"
+
+_n_segments = 2
+_bar_panel_width = 0.16
+_bar_h = 0.016
+_bar_ax = fig.add_axes([_panel_x, _panel_y - _bar_h - 0.02, _bar_panel_width, _bar_h])
+for _i in range(_n_segments):
+    _seg_color = "black" if _i % 2 == 0 else "white"
+    _bar_ax.axvspan(_i / _n_segments, (_i + 1) / _n_segments,
+                    facecolor=_seg_color, edgecolor="black", linewidth=0.8)
+_bar_ax.set_xlim(0, 1)
+_bar_ax.set_ylim(0, 1)
+_bar_ax.set_yticks([])
+_bar_ax.set_xticks([_i / _n_segments for _i in range(_n_segments + 1)])
+_bar_ax.set_xticklabels(
+    [f"{_bar_display_len * _i / _n_segments:.0f}" for _i in range(_n_segments + 1)], fontsize=7)
+_bar_ax.tick_params(length=2, pad=2)
+for _spine in _bar_ax.spines.values():
+    _spine.set_visible(False)
+_bar_ax.set_title(f"Scale ({_bar_unit_label})", fontsize=8, pad=3)
+'''
+
 _CRS_CAPTION_SNIPPET = '''\
 if _crs_note:
     fig.text(0.99, 0.01, _crs_note, ha="right", fontsize=6, color="0.4")
@@ -177,29 +214,73 @@ fig.text(0.5, 0.01, $citation, ha="center", fontsize=6, color="0.4")
 
 _BIVARIATE_TEMPLATE = Template('''\
 # AUTOCARTO GENERATED -- bivariate choropleth (template_id=bivariate_v1)
+import math as _math
 import matplotlib.pyplot as plt
+from matplotlib.colors import to_rgb
 
 _title = $title
 _correlation_note = $correlation_note
 _classification_note = $classification_note
 _crs_note = $crs_note
 
-fig, ax = plt.subplots(figsize=(10, 8))
+_var_x = $var_x
+_var_y = $var_y
+
+fig, ax = plt.subplots(figsize=(11, 8))
+# Reserve the right margin for the legend panel so nothing is drawn over
+# the geometry. A bivariate map is unreadable without its key, so the key
+# gets dedicated space rather than an overlay that can cover data.
+fig.subplots_adjust(left=0.02, right=0.74, top=0.92, bottom=0.06)
 gdf.plot(ax=ax, color=bivariate_colors, edgecolor="white", linewidth=0.15)
 ax.set_title(_title)
 ax.set_axis_off()
-ax.text(
-    0.02, 0.02, _correlation_note, transform=ax.transAxes,
-    fontsize=7, va="bottom", ha="left",
-    bbox={"fc": "white", "ec": "0.7", "alpha": 0.9},
-)
+
+# ── 3x3 bivariate key ────────────────────────────────────────────────────
+# bivariate_palette is bound from the same constant the renderer used to
+# colour the polygons, so the key cannot drift from the map. Cell colour
+# is grid[x_class][y_class]; the image is transposed and row-flipped so
+# that x increases rightward and y increases upward, matching how the
+# axis labels below read.
+_grid = [bivariate_palette[_i * 3:_i * 3 + 3] for _i in range(3)]
+_legend_rgb = [[to_rgb(_grid[_c][2 - _r]) for _c in range(3)] for _r in range(3)]
+
+_key_size = 0.15
+_key_x = 0.78
+_key_y = 0.60
+_kax = fig.add_axes([_key_x, _key_y, _key_size, _key_size * 11 / 8])
+_kax.imshow(_legend_rgb, interpolation="nearest", aspect="equal")
+for _s in _kax.spines.values():
+    _s.set_visible(False)
+# Low/High as tick labels rather than free-floating text: they anchor to the
+# axis and cannot collide with the axis label. Word labels beat numeric
+# tertile edges here because the two axes carry different units, so a shared
+# numeric scale would be meaningless.
+_kax.set_xticks([0, 2])
+_kax.set_xticklabels(["Low", "High"], fontsize=6, color="0.35")
+# Row 0 is the top of an imshow, and the image was flipped so the top row is
+# the HIGH class of the y variable.
+_kax.set_yticks([0, 2])
+_kax.set_yticklabels(["High", "Low"], fontsize=6, color="0.35")
+_kax.tick_params(length=0, pad=2)
+_kax.set_xlabel(_var_x, fontsize=7, labelpad=4)
+_kax.set_ylabel(_var_y, fontsize=7, labelpad=4)
+
+_panel_x = _key_x
+_panel_y = _key_y - 0.06
 if _classification_note:
-    ax.text(
-        0.02, 0.98, _classification_note, transform=ax.transAxes,
-        fontsize=7, va="top", ha="left",
-        bbox={"fc": "white", "ec": "0.7", "alpha": 0.9},
-    )
-''' + _SCALE_BAR_SNIPPET + _CRS_CAPTION_SNIPPET + '''\
+    fig.text(_panel_x, _panel_y, _classification_note, ha="left", va="top",
+             fontsize=7, wrap=True,
+             bbox={"fc": "white", "ec": "0.7", "alpha": 0.9})
+    _panel_y -= 0.07
+if _correlation_note:
+    # Wrapped onto its own lines: the spelled-out statistic is too long for
+    # one line in a side panel, and truncating a statistic is worse than
+    # wrapping it.
+    for _part in _correlation_note.split("   ·   "):
+        fig.text(_panel_x, _panel_y, _part, ha="left", va="top", fontsize=7)
+        _panel_y -= 0.028
+    _panel_y -= 0.02
+''' + _SCALE_BAR_PANEL_SNIPPET + _CRS_CAPTION_SNIPPET + '''\
 fig.text(0.5, 0.01, $citation, ha="center", fontsize=6, color="0.4")
 ''')
 
@@ -288,10 +369,16 @@ def generate(
         raise ValueError(f"Unknown template_id {template_id!r}; must be one of {sorted(TEMPLATES)}")
     template, guaranteed_elements = entry
 
-    title = (
-        f"{', '.join(_prettify_variable(v) for v in proposal.variables)} — "
-        f"{proposal.map_type.replace('_', ' ').title()}"
-    )
+    pretty_vars = [_prettify_variable(v) for v in proposal.variables]
+    if template_id == "bivariate_v1" and len(pretty_vars) >= 2:
+        # "A vs. B" reads as a relationship, which is what a bivariate map
+        # asserts; a comma-joined list reads as two unrelated layers.
+        title = f"{pretty_vars[0]} vs. {pretty_vars[1]}"
+    else:
+        title = (
+            f"{', '.join(pretty_vars)} — "
+            f"{proposal.map_type.replace('_', ' ').title()}"
+        )
     classification_note = _classification_note(template_id, proposal, render_plan)
 
     if template_id == "choropleth_v1":
@@ -311,6 +398,12 @@ def generate(
             correlation_note=_py_literal(correlation_note),
             crs_note=_py_literal(crs_note),
             classification_note=_py_literal(classification_note or ""),
+            # Legend axis labels. variables[0] is the x axis of the 3x3 key
+            # because _bivariate_tertile_colors indexes grid[x_class][y_class]
+            # with x = variables[0]; swapping these would silently mislabel
+            # every cell.
+            var_x=_py_literal(pretty_vars[0] if pretty_vars else ""),
+            var_y=_py_literal(pretty_vars[1] if len(pretty_vars) > 1 else ""),
         )
     else:  # proportional_symbol_v1
         code = template.substitute(

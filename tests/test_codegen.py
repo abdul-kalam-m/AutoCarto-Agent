@@ -18,7 +18,10 @@ import numpy as np
 import pytest
 from shapely.geometry import box
 
+from matplotlib.colors import to_rgb
+
 from autocarto.contracts import AuthorityViolation, MapProposal, ProvenancedValue, RenderPlan
+from autocarto.orchestrator import _BIVARIATE_DEFAULT_PALETTE as BIVARIATE_PALETTE
 from autocarto.execution.gates.gate6_completeness import CompletenessGate
 from autocarto.semantic.codegen import generate
 
@@ -214,11 +217,14 @@ def test_bivariate_template_executes_and_satisfies_gate6(small_gdf):
     )
 
     ast.parse(code)
-    exec_globals = {"gdf": small_gdf, "bivariate_colors": ["#e8e8e8"] * 5}
+    exec_globals = {
+        "gdf": small_gdf,
+        "bivariate_colors": ["#e8e8e8"] * 5,
+        "bivariate_palette": list(BIVARIATE_PALETTE),
+    }
     exec(compile(code, "<test>", "exec"), exec_globals)
     fig = exec_globals["fig"]
     assert isinstance(fig, plt.Figure)
-    plt.close(fig)
 
     assert manifest.bivariate_legend_present is True
     assert manifest.correlation_statistic_shown is True
@@ -227,12 +233,71 @@ def test_bivariate_template_executes_and_satisfies_gate6(small_gdf):
     # Same real-execution check as the choropleth test above: bivariate_v1
     # claimed "classification_note" as guaranteed (TEMPLATES dict) but had
     # no text-drawing call for it at all before this fix -- only
-    # correlation_note was ever actually rendered.
-    rendered_texts = " ".join(t.get_text() for t in fig.axes[0].texts)
+    # correlation_note was ever actually rendered. The note now lives in the
+    # side panel (fig.texts), not over the map.
+    rendered_texts = " ".join(t.get_text() for t in fig.texts)
     assert "tertile" in rendered_texts.lower()
 
     gate_res = CompletenessGate().evaluate(manifest, "bivariate")
     assert gate_res.decision == "PASS"
+    plt.close(fig)
+
+
+def test_bivariate_legend_is_actually_drawn_and_matches_the_map(small_gdf):
+    """Gate 6 reported bivariate_legend present with missing:[] on a map that
+    had no key anywhere on it. bivariate_v1 declared "bivariate_legend" in
+    its guaranteed_elements while the template contained zero legend-drawing
+    code, and Gate 6 trusts the manifest by design -- the same defect class
+    as the earlier classification_note bug, on the one element a bivariate
+    map is unreadable without.
+
+    Checks the rendered artifact, not the manifest, and checks that the key's
+    colours are the ones the polygons were actually filled from: a legend
+    that exists but disagrees with the map is worse than none."""
+    proposal = MapProposal(map_type="bivariate", variables=["median_household_income", "asthma_prevalence"])
+    plan = RenderPlan(
+        breaks=ProvenancedValue(None, "TEMPLATE_DEFAULT"),
+        projection=ProvenancedValue(5070, "GATE_PRESCRIBED", "G4"),
+        palette=ProvenancedValue(list(BIVARIATE_PALETTE), "TEMPLATE_DEFAULT"),
+        template_id=ProvenancedValue("bivariate_v1", "TEMPLATE_DEFAULT"),
+    )
+    code, _manifest = generate(
+        proposal, plan, citation="c", crs_note="EPSG:5070",
+        correlation_note="Bivariate Moran's I = -0.555   ·   Spearman ρ = -0.776   ·   Gate 3b: PASS",
+    )
+
+    exec_globals = {
+        "gdf": small_gdf,
+        "bivariate_colors": ["#e8e8e8"] * 5,
+        "bivariate_palette": list(BIVARIATE_PALETTE),
+    }
+    exec(compile(code, "<test>", "exec"), exec_globals)
+    fig = exec_globals["fig"]
+    ax = exec_globals["ax"]
+
+    # A 3x3 key was actually rasterised somewhere in the figure.
+    images = [im for a in fig.axes for im in a.images]
+    assert images, "no bivariate key was drawn -- Gate 6 would still report it present"
+    key = images[0]
+    assert key.get_array().shape[:2] == (3, 3)
+
+    # Every one of the 9 palette colours appears in the key, and the corner
+    # cells are the ones the tertile assignment actually produces:
+    # grid[x_class][y_class], flipped so y increases upward.
+    grid = [list(BIVARIATE_PALETTE)[i * 3:i * 3 + 3] for i in range(3)]
+    arr = key.get_array()
+    assert tuple(np.round(arr[2][0], 5)) == tuple(np.round(to_rgb(grid[0][0]), 5))  # bottom-left: low/low
+    assert tuple(np.round(arr[2][2], 5)) == tuple(np.round(to_rgb(grid[2][0]), 5))  # bottom-right: high x, low y
+    assert tuple(np.round(arr[0][0], 5)) == tuple(np.round(to_rgb(grid[0][2]), 5))  # top-left: low x, high y
+
+    # Axis labels name the variables in the order the colour lookup uses.
+    kax = key.axes
+    assert "Median Household Income" in kax.get_xlabel()
+    assert "Asthma Prevalence" in kax.get_ylabel()
+
+    # Nothing is painted over the geometry any more.
+    assert len(ax.texts) == 0, "notes must sit in the side panel, not over the map"
+    plt.close(fig)
 
 
 def test_proportional_symbol_template_executes(small_gdf):
