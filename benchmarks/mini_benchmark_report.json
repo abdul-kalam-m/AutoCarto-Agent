@@ -1,16 +1,25 @@
 {
   "benchmark": "autocarto-mini-benchmark",
-  "version": 2,
+  "version": 3,
   "corpus": {
-    "description": "Seeded synthetic corpus with KNOWN ground-truth outcomes, so the validator's DECISION CORRECTNESS can be scored (not just a raw rejection tally). Deliberately adversarial: 4 of 5 Gate-2 regimes and 1 of 3 Gate-3b regimes are pathological by construction, so the rejection rate is high BY DESIGN and is only meaningful alongside this composition. Gate 2: 5 distribution regimes x 3 seeds, naive policy = Fisher-Jenks with quintile breaks. Gate 3b: 3 spatial-coupling regimes x 3 seeds on a 16x16 queen lattice, naive policy = always propose bivariate encoding.",
+    "description": "Seeded synthetic corpus with KNOWN ground-truth outcomes, so the validator's DECISION CORRECTNESS can be scored (not just a raw rejection tally), now covering all six gates (v3; v2 covered only G2/G3b). Deliberately adversarial where noted, so the rejection rate is high BY DESIGN and is only meaningful alongside this composition. G1: 3 CRS/role regimes (no seed -- deterministic geometry). G2: 5 distribution regimes x 3 seeds, naive policy = Fisher-Jenks with quintile breaks. G3a: 3 spatial-structure regimes x 3 seeds on a 16x16 queen lattice, naive policy = always propose a choropleth regardless of structure -- 'white_noise' is a NEGATIVE CONTROL (no spatial structure exists; REJECT is permanently correct, not a fixable proposal defect). G3b: 3 spatial-coupling regimes x 3 seeds, naive policy = always propose bivariate encoding -- 'independent' is the same kind of negative control. G4: 4 CRS/AOI regimes (no seed), naive policy = always propose Web Mercator. G5: 2 palette regimes (no seed), naive policy = always propose a red-yellow-green diverging palette.",
+    "gate1_scenarios": 3,
     "gate2_scenarios": 15,
+    "gate3a_scenarios": 9,
     "gate3b_scenarios": 9,
-    "total": 24,
+    "gate4_scenarios": 4,
+    "gate5_scenarios": 2,
+    "total": 42,
     "seeds": {
       "gate2": [
         11,
         12,
         13
+      ],
+      "gate3a": [
+        31,
+        32,
+        33
       ],
       "gate3b": [
         21,
@@ -18,17 +27,21 @@
         23
       ],
       "permutation": 7
+    },
+    "optional_gates_skipped_if_deps_missing": {
+      "gate1_requires": "geopandas (extra: geo)",
+      "gate5_requires": "colorspacious (core dependency as of 2026-07-27)"
     }
   },
   "summary": {
-    "total_scenarios": 24,
-    "strict_decision_accuracy": 0.9524,
-    "strict_correct": 20,
-    "strict_total": 21,
-    "correct_on_pathological": 14,
-    "pathological_total": 15,
-    "correct_on_benign": 6,
-    "benign_total": 6,
+    "total_scenarios": 42,
+    "strict_decision_accuracy": 0.9744,
+    "strict_correct": 38,
+    "strict_total": 39,
+    "correct_on_pathological": 21,
+    "pathological_total": 22,
+    "correct_on_benign": 17,
+    "benign_total": 17,
     "borderline_reported_not_scored": 3,
     "notable_misses": [
       {
@@ -44,18 +57,54 @@
         "spearman_rho": 0.2398
       }
     ],
-    "rejected": 15,
+    "rejected": 22,
     "warned": 0,
-    "passed_or_approved": 9,
-    "rejection_rate": 0.625,
+    "passed_or_approved": 20,
+    "rejection_rate": 0.5238,
     "rejections_by_cause": {
+      "G1:geographic_density": 1,
+      "G3a:white_noise": 3,
+      "G3b:independent": 2,
+      "G3b:weak_coupling": 1,
+      "G4:conus_webmerc": 1,
+      "G4:georgia_webmerc": 1,
+      "G5:rdylgn_diverging": 1,
       "discrete_ordinal": 3,
       "heavy_right_skew": 6,
-      "no_spatial_cross_correlation": 3,
       "zero_inflated": 3
     }
   },
   "scenarios": [
+    {
+      "gate": "G1",
+      "regime": "geographic_density",
+      "seed": null,
+      "naive_proposal": "no_reprojection(epsg=4326)",
+      "outcome": "REJECT",
+      "expected": "REJECT",
+      "correct": true,
+      "prescribed_method": "reproject_equal_area"
+    },
+    {
+      "gate": "G1",
+      "regime": "geographic_ordinal",
+      "seed": null,
+      "naive_proposal": "no_reprojection(epsg=4326)",
+      "outcome": "PASS",
+      "expected": "PASS",
+      "correct": true,
+      "prescribed_method": null
+    },
+    {
+      "gate": "G1",
+      "regime": "equal_area_density",
+      "seed": null,
+      "naive_proposal": "no_reprojection(epsg=5070)",
+      "outcome": "PASS",
+      "expected": "PASS",
+      "correct": true,
+      "prescribed_method": null
+    },
     {
       "gate": "G2",
       "regime": "well_behaved",
@@ -237,6 +286,105 @@
       "prescribed_method": "arcsinh_transform_then_jenks"
     },
     {
+      "gate": "G3a",
+      "regime": "sar_clustered",
+      "seed": 31,
+      "naive_proposal": "choropleth",
+      "outcome": "PASS",
+      "expected": "PASS",
+      "correct": true,
+      "morans_i": 0.5622,
+      "p_value": 0.005
+    },
+    {
+      "gate": "G3a",
+      "regime": "sar_clustered",
+      "seed": 32,
+      "naive_proposal": "choropleth",
+      "outcome": "PASS",
+      "expected": "PASS",
+      "correct": true,
+      "morans_i": 0.4937,
+      "p_value": 0.005
+    },
+    {
+      "gate": "G3a",
+      "regime": "sar_clustered",
+      "seed": 33,
+      "naive_proposal": "choropleth",
+      "outcome": "PASS",
+      "expected": "PASS",
+      "correct": true,
+      "morans_i": 0.3506,
+      "p_value": 0.005
+    },
+    {
+      "gate": "G3a",
+      "regime": "white_noise",
+      "seed": 31,
+      "naive_proposal": "choropleth",
+      "outcome": "REJECT",
+      "expected": "REJECT",
+      "correct": true,
+      "morans_i": 0.028,
+      "p_value": 0.42
+    },
+    {
+      "gate": "G3a",
+      "regime": "white_noise",
+      "seed": 32,
+      "naive_proposal": "choropleth",
+      "outcome": "REJECT",
+      "expected": "REJECT",
+      "correct": true,
+      "morans_i": 0.0106,
+      "p_value": 0.75
+    },
+    {
+      "gate": "G3a",
+      "regime": "white_noise",
+      "seed": 33,
+      "naive_proposal": "choropleth",
+      "outcome": "REJECT",
+      "expected": "REJECT",
+      "correct": true,
+      "morans_i": -0.0257,
+      "p_value": 0.48
+    },
+    {
+      "gate": "G3a",
+      "regime": "sar_dispersed",
+      "seed": 31,
+      "naive_proposal": "choropleth",
+      "outcome": "PASS",
+      "expected": "PASS",
+      "correct": true,
+      "morans_i": -0.1225,
+      "p_value": 0.005
+    },
+    {
+      "gate": "G3a",
+      "regime": "sar_dispersed",
+      "seed": 32,
+      "naive_proposal": "choropleth",
+      "outcome": "PASS",
+      "expected": "PASS",
+      "correct": true,
+      "morans_i": -0.1097,
+      "p_value": 0.015
+    },
+    {
+      "gate": "G3a",
+      "regime": "sar_dispersed",
+      "seed": 33,
+      "naive_proposal": "choropleth",
+      "outcome": "PASS",
+      "expected": "PASS",
+      "correct": true,
+      "morans_i": -0.1422,
+      "p_value": 0.005
+    },
+    {
       "gate": "G3b",
       "regime": "strong_coupling",
       "seed": 21,
@@ -364,6 +512,66 @@
       "bivariate_morans_i": 0.1965,
       "bivariate_morans_p": 0.005,
       "spearman_rho": 0.2398
+    },
+    {
+      "gate": "G4",
+      "regime": "conus_webmerc",
+      "seed": null,
+      "naive_proposal": "epsg_3857",
+      "outcome": "REJECT",
+      "expected": "REJECT",
+      "correct": true,
+      "max_areal_exaggeration": 1.3612
+    },
+    {
+      "gate": "G4",
+      "regime": "conus_albers",
+      "seed": null,
+      "naive_proposal": "epsg_5070",
+      "outcome": "PASS",
+      "expected": "PASS",
+      "correct": true,
+      "max_areal_exaggeration": 0.0
+    },
+    {
+      "gate": "G4",
+      "regime": "georgia_webmerc",
+      "seed": null,
+      "naive_proposal": "epsg_3857",
+      "outcome": "REJECT",
+      "expected": "REJECT",
+      "correct": true,
+      "max_areal_exaggeration": 0.4903
+    },
+    {
+      "gate": "G4",
+      "regime": "georgia_albers",
+      "seed": null,
+      "naive_proposal": "epsg_5070",
+      "outcome": "PASS",
+      "expected": "PASS",
+      "correct": true,
+      "max_areal_exaggeration": 0.0
+    },
+    {
+      "gate": "G5",
+      "regime": "rdylgn_diverging",
+      "seed": null,
+      "naive_proposal": "diverging_palette",
+      "outcome": "REJECT",
+      "expected": "REJECT",
+      "correct": true,
+      "worst_delta_e": 0.48
+    },
+    {
+      "gate": "G5",
+      "regime": "colorbrewer_sequential",
+      "seed": null,
+      "naive_proposal": "sequential_palette",
+      "outcome": "PASS",
+      "expected": "PASS",
+      "correct": true,
+      "worst_delta_e": 11.84
     }
   ]
 }

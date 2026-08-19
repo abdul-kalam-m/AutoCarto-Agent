@@ -23,6 +23,13 @@ secrets/
 # Generated artifacts (regenerable; committed outputs live in output/ and benchmarks/)
 artifacts/
 
+# Per-run CLI output. `autocarto run --out <dir>` writes a trace + map per
+# invocation; these are reproducible from the prompt and seed, so they are
+# working files, not artifacts. The curated figures under output/figures/
+# and the reference traces under output/traces/ ARE committed and stay so.
+output/run/
+output/run_*/
+
 # OS noise
 Thumbs.db
 .DS_Store
