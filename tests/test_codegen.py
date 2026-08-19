@@ -314,11 +314,58 @@ def test_proportional_symbol_template_executes(small_gdf):
     exec_globals = {"gdf": small_gdf, "values": np.array([1.0, 5.0, 12.0, 30.0, 80.0])}
     exec(compile(code, "<test>", "exec"), exec_globals)
     fig = exec_globals["fig"]
+    ax = exec_globals["ax"]
     assert isinstance(fig, plt.Figure)
-    plt.close(fig)
+
+    # This template was the last one still drawing its size key and scale bar
+    # over the geometry, which is exactly what obscures the small symbols a
+    # proportional-symbol map exists to show. Both now live in the reserved
+    # panel, sharing the column the other two templates use.
+    assert len(ax.texts) == 0, "nothing may be drawn over the map"
+    assert not ax.get_legend(), "the size key belongs in the panel, not on the map"
+    assert fig.legends, "a figure-level size key should exist"
+
+    bar_box = exec_globals["_bar_ax"].get_position()
+    map_box = ax.get_position()
+    assert bar_box.x0 >= map_box.x1, "scale bar must sit beside the map, not over it"
 
     gate_res = CompletenessGate().evaluate(manifest, "proportional_symbol")
     assert gate_res.decision == "PASS"
+    plt.close(fig)
+
+
+def test_all_panel_templates_share_one_column(small_gdf):
+    """The panel reads as a column only if every element in it shares a left
+    edge and a width. Before this, the key ended at 0.930, the scale bar at
+    0.940 and the notes ran to 0.990 -- three ragged right edges in a space
+    barely two inches wide."""
+    proposal = MapProposal(map_type="bivariate", variables=["median_household_income", "asthma_prevalence"])
+    plan = RenderPlan(
+        breaks=ProvenancedValue(None, "TEMPLATE_DEFAULT"),
+        projection=ProvenancedValue(5070, "GATE_PRESCRIBED", "G4"),
+        palette=ProvenancedValue(list(BIVARIATE_PALETTE), "TEMPLATE_DEFAULT"),
+        template_id=ProvenancedValue("bivariate_v1", "TEMPLATE_DEFAULT"),
+    )
+    code, _m = generate(proposal, plan, citation="c", crs_note="EPSG:5070",
+                        correlation_note="A   ·   B   ·   C")
+    exec_globals = {
+        "gdf": small_gdf,
+        "bivariate_colors": ["#e8e8e8"] * 5,
+        "bivariate_palette": list(BIVARIATE_PALETTE),
+    }
+    exec(compile(code, "<test>", "exec"), exec_globals)
+    fig = exec_globals["fig"]
+
+    key_box = exec_globals["_kax"].get_position()
+    bar_box = exec_globals["_bar_ax"].get_position()
+    assert round(key_box.x0, 3) == round(bar_box.x0, 3)
+    assert round(key_box.x1, 3) == round(bar_box.x1, 3)
+
+    # The 3x3 key must be square in inches, not merely in axes fractions.
+    fw, fh = fig.get_size_inches()
+    assert abs(key_box.width * fw - key_box.height * fh) < 0.05
+
+    plt.close(fig)
 
 
 def test_free_llm_provenance_blocks_codegen_entirely():

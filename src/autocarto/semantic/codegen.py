@@ -26,6 +26,7 @@ the same lesson applied to stylesheet injection).
 
 from __future__ import annotations
 
+import textwrap
 from string import Template
 from typing import Any, Dict, FrozenSet, Optional, Tuple
 
@@ -81,9 +82,10 @@ _bar_display_len = _bar_len / 1000 if _bar_is_projected else _bar_len
 _bar_unit_label = "km" if _bar_is_projected else "deg"
 
 _n_segments = 2
-_bar_panel_width = 0.16
 _bar_h = 0.016
-_bar_ax = fig.add_axes([_panel_x, _panel_y - _bar_h - 0.02, _bar_panel_width, _bar_h])
+# Same left edge and width as the key above it -- the panel reads as one
+# column only if every element in it shares both.
+_bar_ax = fig.add_axes([_panel_x, _panel_y - _bar_h - 0.02, _panel_w, _bar_h])
 for _i in range(_n_segments):
     _seg_color = "black" if _i % 2 == 0 else "white"
     _bar_ax.axvspan(_i / _n_segments, (_i + 1) / _n_segments,
@@ -244,10 +246,14 @@ ax.set_axis_off()
 _grid = [bivariate_palette[_i * 3:_i * 3 + 3] for _i in range(3)]
 _legend_rgb = [[to_rgb(_grid[_c][2 - _r]) for _c in range(3)] for _r in range(3)]
 
-_key_size = 0.15
-_key_x = 0.78
+# One column: the key, the notes and the scale bar all start at _panel_x
+# and span _panel_w, so the panel has a single flush right edge. The key's
+# height fraction is scaled by the figure aspect so the cells stay square.
+_panel_x = $panel_x
+_panel_w = $panel_w
+_fig_w, _fig_h = fig.get_size_inches()
 _key_y = 0.60
-_kax = fig.add_axes([_key_x, _key_y, _key_size, _key_size * 11 / 8])
+_kax = fig.add_axes([_panel_x, _key_y, _panel_w, _panel_w * _fig_w / _fig_h])
 _kax.imshow(_legend_rgb, interpolation="nearest", aspect="equal")
 for _s in _kax.spines.values():
     _s.set_visible(False)
@@ -265,20 +271,20 @@ _kax.tick_params(length=0, pad=2)
 _kax.set_xlabel(_var_x, fontsize=7, labelpad=4)
 _kax.set_ylabel(_var_y, fontsize=7, labelpad=4)
 
-_panel_x = _key_x
-_panel_y = _key_y - 0.06
+# Notes hang below the key, in the same column. Text arrives pre-wrapped to
+# the panel width from codegen, so it cannot run past the key's right edge.
+_panel_y = _key_y - 0.055
 if _classification_note:
     fig.text(_panel_x, _panel_y, _classification_note, ha="left", va="top",
-             fontsize=7, wrap=True,
+             fontsize=7, linespacing=1.4,
              bbox={"fc": "white", "ec": "0.7", "alpha": 0.9})
-    _panel_y -= 0.07
+    _panel_y -= 0.035 + 0.026 * (_classification_note.count(chr(10)) + 1)
 if _correlation_note:
-    # Wrapped onto its own lines: the spelled-out statistic is too long for
-    # one line in a side panel, and truncating a statistic is worse than
-    # wrapping it.
+    # One statistic per line: the spelled-out form does not fit the panel
+    # column on one line, and truncating a statistic is worse than wrapping.
     for _part in _correlation_note.split("   ·   "):
         fig.text(_panel_x, _panel_y, _part, ha="left", va="top", fontsize=7)
-        _panel_y -= 0.028
+        _panel_y -= 0.030
     _panel_y -= 0.02
 ''' + _SCALE_BAR_PANEL_SNIPPET + _CRS_CAPTION_SNIPPET + '''\
 fig.text(0.5, 0.01, $citation, ha="center", fontsize=6, color="0.4")
@@ -286,22 +292,52 @@ fig.text(0.5, 0.01, $citation, ha="center", fontsize=6, color="0.4")
 
 _PROPORTIONAL_SYMBOL_TEMPLATE = Template('''\
 # AUTOCARTO GENERATED -- proportional symbol (template_id=proportional_symbol_v1)
+import math as _math
 import matplotlib.pyplot as plt
 
 _title = $title
 _crs_note = $crs_note
+_value_unit = $unit
+_title_legend = $var_x
 
-fig, ax = plt.subplots(figsize=(10, 8))
+fig, ax = plt.subplots(figsize=(11, 8))
+# Right margin reserved for the panel, same composition as the other two
+# templates: nothing is drawn over the geometry.
+fig.subplots_adjust(left=0.02, right=0.74, top=0.92, bottom=0.06)
 gdf.boundary.plot(ax=ax, color="0.75", linewidth=0.4)
 centroids = gdf.geometry.centroid
 _sizes = 20 + 400 * (values - values.min()) / max(1e-9, (values.max() - values.min()))
 _scatter = ax.scatter(centroids.x, centroids.y, s=_sizes, alpha=0.65, color="#2166ac",
                       edgecolor="white", linewidth=0.4)
-_handles, _labels = _scatter.legend_elements(prop="sizes", num=3, func=lambda s: (s - 20) / 400 * (values.max() - values.min()) + values.min())
-ax.legend(_handles, _labels, title=_title, loc="lower left", fontsize=6, title_fontsize=7, framealpha=0.9)
 ax.set_title(_title)
 ax.set_axis_off()
-''' + _SCALE_BAR_SNIPPET + _CRS_CAPTION_SNIPPET + '''\
+
+def _fmt_size(x):
+    # Same unit-aware formatting the choropleth colourbar uses: a symbol
+    # legend labelled with bare floats has the same defect a colourbar does.
+    if _value_unit == "USD":
+        return f"$${x:,.0f}"
+    if _value_unit == "percent":
+        return f"{x:,.1f}%"
+    return f"{x:,.0f}"
+
+_panel_x = $panel_x
+_panel_w = $panel_w
+_handles, _labels = _scatter.legend_elements(
+    prop="sizes", num=3,
+    func=lambda s: (s - 20) / 400 * (values.max() - values.min()) + values.min(),
+)
+_labels = [_fmt_size(float(_v)) for _v in
+           [(_h.get_markersize() ** 2 - 20) / 400 * (values.max() - values.min()) + values.min()
+            for _h in _handles]]
+# The size key lives in the panel (bbox_to_anchor in figure coords), not
+# "lower left" of the map, where it covered whatever was underneath it.
+_leg = fig.legend(_handles, _labels, title=_title_legend, loc="upper left",
+                  bbox_to_anchor=(_panel_x, 0.80), fontsize=7, title_fontsize=8,
+                  frameon=True, framealpha=0.9, labelspacing=1.2, borderpad=0.8)
+fig.canvas.draw()
+_panel_y = _leg.get_window_extent().transformed(fig.transFigure.inverted()).y0 - 0.04
+''' + _SCALE_BAR_PANEL_SNIPPET + _CRS_CAPTION_SNIPPET + '''\
 fig.text(0.5, 0.01, $citation, ha="center", fontsize=6, color="0.4")
 ''')
 
@@ -328,6 +364,28 @@ def _classification_note(template_id: str, proposal: MapProposal, render_plan: R
     if template_id == "bivariate_v1":
         return "Tertile classification per variable (3x3 bivariate scheme)"
     return None
+
+
+# Legend panel geometry, shared by every template that has a side panel.
+# One left edge and one width for the key, the notes, and the scale bar, so
+# the panel has a single flush right edge instead of three ragged ones.
+_PANEL_X = 0.78
+_PANEL_W = 0.185
+# Character width that fits _PANEL_W at the panel's 7pt text size. Wrapping
+# happens here rather than in the generated code because `textwrap` is not
+# on the sandbox's import whitelist, and matplotlib's own `wrap=True` wraps
+# to the figure edge, not to a panel column.
+_PANEL_WRAP_CHARS = 34
+
+
+def _wrap_for_panel(text: str, width: int = _PANEL_WRAP_CHARS) -> str:
+    """Hard-wrap panel text to the panel column, preserving explicit breaks."""
+    if not text:
+        return text
+    return "\n".join(
+        "\n".join(textwrap.wrap(line, width=width)) if line.strip() else line
+        for line in text.splitlines()
+    )
 
 
 def _prettify_variable(name: str) -> str:
@@ -397,19 +455,25 @@ def generate(
             citation=_py_literal(citation),
             correlation_note=_py_literal(correlation_note),
             crs_note=_py_literal(crs_note),
-            classification_note=_py_literal(classification_note or ""),
+            classification_note=_py_literal(_wrap_for_panel(classification_note or "")),
             # Legend axis labels. variables[0] is the x axis of the 3x3 key
             # because _bivariate_tertile_colors indexes grid[x_class][y_class]
             # with x = variables[0]; swapping these would silently mislabel
             # every cell.
             var_x=_py_literal(pretty_vars[0] if pretty_vars else ""),
             var_y=_py_literal(pretty_vars[1] if len(pretty_vars) > 1 else ""),
+            panel_x=_py_literal(_PANEL_X),
+            panel_w=_py_literal(_PANEL_W),
         )
     else:  # proportional_symbol_v1
         code = template.substitute(
             title=_py_literal(title),
             citation=_py_literal(citation),
             crs_note=_py_literal(crs_note),
+            unit=_py_literal(variable_unit or ""),
+            var_x=_py_literal(pretty_vars[0] if pretty_vars else ""),
+            panel_x=_py_literal(_PANEL_X),
+            panel_w=_py_literal(_PANEL_W),
         )
 
     # Every field here is gated on "is this in the template's own declared
