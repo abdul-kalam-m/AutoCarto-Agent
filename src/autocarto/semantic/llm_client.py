@@ -126,6 +126,14 @@ class MockLLM(LLMClient):
         roles = {s.name: s.role for s in context.dataset_schemas if s.role}
 
         map_type = "bivariate" if len(variables) >= 2 else self.default_map_type
+        # Trim to the arity the map type actually encodes. NvidiaLLM's intent
+        # validator already does this; MockLLM did not, which was invisible
+        # while every dataset had exactly two variables. With three, it
+        # proposed a "bivariate" map naming all three while Gate 3b and the
+        # renderer only ever consume variables[0] and variables[1] -- so the
+        # title and the citation footer would both claim a variable the map
+        # does not encode.
+        variables = variables[:2] if map_type == "bivariate" else variables[:1]
 
         method: Optional[str] = "jenks"
         breaks: Optional[List[float]] = None

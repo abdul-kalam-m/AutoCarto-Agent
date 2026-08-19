@@ -13,6 +13,7 @@ guard pattern as the other snapshot-dependent tests in this suite.
 from __future__ import annotations
 
 import matplotlib
+import numpy as np
 matplotlib.use("Agg")
 import pytest
 
@@ -94,6 +95,52 @@ def test_real_bivariate_citation_mentions_both_sources():
     assert result.success is True
     assert "Census ACS" in result.code
     assert "CDC PLACES" in result.code
+
+
+def test_population_density_is_area_normalised_and_equal_area_gated():
+    """population_density (ACS B01003 / tract area) is the only variable in
+    this dataset for which Gate 1's equal-area requirement is load-bearing
+    rather than conservative: polygon area is literally its denominator, so
+    deriving it under a geographic CRS would bake in the exact error Gate 1
+    exists to catch. Asserts the role is tagged so the gate actually fires,
+    and that the density was computed in an equal-area projection."""
+    ds = load_real_atlanta_dataset(variables=["population_density"])
+    assert ds.variable_roles["population_density"] == "density"
+    assert ds.gdf.crs.to_epsg() == 5070  # CONUS Albers, equal-area
+
+    d = ds.variables["population_density"]
+    # Sanity on magnitude: these are people per km2 for an urban county. A
+    # degrees-squared denominator (the Gate 1 error) would be off by orders
+    # of magnitude, so the upper end is the discriminating check.
+    #
+    # The minimum is legitimately 0.0 here and that is not a missing value:
+    # requesting population_density alone drops only tracts missing THAT
+    # variable, and population has no Census sentinels, so the two
+    # zero-population tracts (airport land) survive with a true density of
+    # zero. They disappear from the default dataset only because income and
+    # asthma are absent for them.
+    assert d.min() >= 0.0
+    assert 10_000 < d.max() < 100_000
+    assert 500 < float(np.median(d)) < 5_000
+
+
+def test_population_density_prompt_resolves_to_density_not_a_substitute():
+    """The bug this variable was added around: 'Map of Population Density'
+    previously rendered a Median Household Income choropleth, because the
+    name was absent from the schema and the intent validator substituted
+    the first available variable. It must now resolve to the real thing."""
+    ds = load_real_atlanta_dataset()
+    assert "population_density" in ds.variables, (
+        "population_density must be in the DEFAULT variable set -- Tier 1 "
+        "resolves prompts only against the schema it is handed, so a "
+        "variable missing from the default is unmappable from a prompt."
+    )
+    names = [s.name for s in ds.to_field_schemas()]
+    assert names.index("median_household_income") < names.index("population_density"), (
+        "income/asthma must stay first: bivariate proposals consume "
+        "variables[0] and variables[1], so reordering would silently change "
+        "the default bivariate pairing."
+    )
 
 
 def test_real_data_gate2_naive_proposal_rejected_then_converges():
