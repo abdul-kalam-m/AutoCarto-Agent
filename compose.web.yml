@@ -1,0 +1,16 @@
+services:
+  cartollm:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
+      AUTOCARTO_WEB_MODEL: ${AUTOCARTO_WEB_MODEL:-nvidia/nemotron-3.5-lightning-30b-a3b}
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true

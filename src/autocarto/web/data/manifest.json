@@ -1,0 +1,62 @@
+{
+  "manifest_version": 2,
+  "pipeline_version": "nj-web-snapshot-v2",
+  "geometry_processing": {
+    "parks": {
+      "repair": "Shapely make_valid; retain polygonal components",
+      "repaired_features": 17,
+      "simplify_degrees": 0.0001,
+      "preserve_topology": true
+    }
+  },
+  "retrieved_at": "2026-09-16T22:14:52.779161+00:00",
+  "files": {
+    "counties.geojson": {
+      "sha256": "98933083cdeeb174a4abd7659fc66c1978907f11c7b8ed1ecb77c19bfe881afb",
+      "version_id": "nj-counties-acs2023-v2-98933083cdeeb174",
+      "features": 21
+    },
+    "parks.geojson": {
+      "sha256": "ccbaeb4243308dac55b2cc7bca7a968d9b0bb1c78b523e32582c7916f2584310",
+      "version_id": "njdep-open-space-67-v2-ccbaeb4243308dac",
+      "features": 376
+    },
+    "park_points.geojson": {
+      "sha256": "eeed79e3000c9271ec329c5e2bb0bddc6344a10ce00ca077f4f74539c53d0ddd",
+      "version_id": "njdep-gnis2016-v1-eeed79e3000c9271",
+      "features": 394,
+      "retrieved_at": "2026-09-17T03:30:34.034660+00:00"
+    }
+  },
+  "sources": {
+    "counties": "https://maps.nj.gov/arcgis/rest/services/Framework/Government_Boundaries/MapServer/1",
+    "demographics": "https://api.census.gov/data/2023/acs/acs5",
+    "parks": "https://mapsdep.nj.gov/arcgis/rest/services/Features/Land/MapServer/67",
+    "park_points": "https://mapsdep.nj.gov/arcgis/rest/services/Features/Land/MapServer/5"
+  },
+  "demographics_vintage": "2019\u20132023 ACS 5-year estimates",
+  "parks_vintage": "NJDEP administered Open Space (State Owned) Generalized; pinned service snapshot",
+  "coverage": {
+    "counties": "All 21 New Jersey counties; ACS 2019\u20132023 five-year estimates, not current-year estimates.",
+    "parks": "NJDEP-administered state-owned open space only. Excludes a comprehensive inventory of municipal, county, federal and private parks. USE_DESIGNATION and PUBLIC_ACCESS are source attributes; use facility links for restrictions and current operating information.",
+    "park_points": "Historical GNIS 2016 named park locations, not park boundaries or entrances. Public access is not verified; these points are separate from current state-owned open-space polygons."
+  },
+  "parks_source": {
+    "layer_id": 67,
+    "name": "Open Space (State Owned) Generalized",
+    "feature_count": 376,
+    "geometry": "Polygon/MultiPolygon",
+    "latest_feature_update": 1770667881000,
+    "missing_feature_class": 1,
+    "missing_public_access": 88,
+    "missing_facility_url": 42
+  },
+  "refresh_policy": "Stage, compare counts/coverage/categories/checksums, review geometries, test, then explicitly promote and commit every GeoJSON with the manifest. Restart API. Version IDs change with content; imports never substitute a different snapshot.",
+  "notes": [
+    "County geometry simplified to 0.0005 degrees for web display; not a survey product.",
+    "Density divides ACS population by NJOGIS county SQ_MILES (boundary area, not Census land area).",
+    "Income is median household income in 2023 inflation-adjusted dollars; estimates include 90% margins of error.",
+    "NJDEP layer 67 generalized open-space polygons simplified to 0.0001 degrees for web display; not tax parcels or survey boundaries. Missing FEATURE_CLASS is displayed as Unspecified, not inferred from use.",
+    "ACS negative margin-of-error sentinel values are preserved; they are not numeric error bounds."
+  ]
+}

@@ -20,6 +20,24 @@ All six roadmap phases (Fable Review/01_OPERATING_MANUAL.md §11) are implemente
 
 ## Quickstart
 
+### New Jersey web workspace
+
+A React / MapLibre map workspace is available with preloaded NJ county
+population, income, density, and state-owned open-space polygons, chat, styling, inspection,
+and exports. It reuses G2 and G5 for an interactive preview; the full CLI
+publication pipeline remains separate. See [web setup and scope](docs/web-workspace.md).
+
+```bash
+pip install -c constraints-ci.txt -e .[web]
+cd web
+npm ci
+npm run build
+cd ..
+autocarto-web                     # http://127.0.0.1:8000
+```
+
+### Original CLI
+
 ```bash
 pip install -e .[dev]
 

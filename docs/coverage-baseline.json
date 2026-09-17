@@ -1,0 +1,402 @@
+{
+  "measured_at": "2026-09-16",
+  "scope": "Pre-Phase-0 working tree; statement coverage",
+  "python": "3.12.10",
+  "platform": "Windows",
+  "passed": 316,
+  "skipped": 30,
+  "seconds": 228.17,
+  "command": "python -m pytest --cov=autocarto --cov-report=term-missing --cov-report=json:.web-cache/coverage-baseline.json --cov-report=html:.web-cache/coverage-baseline --tb=short",
+  "totals": {
+    "covered_lines": 2607,
+    "num_statements": 2970,
+    "percent_covered": 87.77777777777777,
+    "percent_covered_display": "88",
+    "missing_lines": 363,
+    "excluded_lines": 5,
+    "percent_statements_covered": 87.77777777777777,
+    "percent_statements_covered_display": "88"
+  },
+  "files": {
+    "src/autocarto/__init__.py": {
+      "covered_lines": 1,
+      "num_statements": 1,
+      "percent_covered": 100.0,
+      "percent_covered_display": "100",
+      "missing_lines": 0,
+      "excluded_lines": 0,
+      "percent_statements_covered": 100.0,
+      "percent_statements_covered_display": "100"
+    },
+    "src/autocarto/benchmark.py": {
+      "covered_lines": 142,
+      "num_statements": 172,
+      "percent_covered": 82.55813953488372,
+      "percent_covered_display": "83",
+      "missing_lines": 30,
+      "excluded_lines": 0,
+      "percent_statements_covered": 82.55813953488372,
+      "percent_statements_covered_display": "83"
+    },
+    "src/autocarto/cli.py": {
+      "covered_lines": 0,
+      "num_statements": 27,
+      "percent_covered": 0.0,
+      "percent_covered_display": "0",
+      "missing_lines": 27,
+      "excluded_lines": 0,
+      "percent_statements_covered": 0.0,
+      "percent_statements_covered_display": "0"
+    },
+    "src/autocarto/config.py": {
+      "covered_lines": 56,
+      "num_statements": 56,
+      "percent_covered": 100.0,
+      "percent_covered_display": "100",
+      "missing_lines": 0,
+      "excluded_lines": 0,
+      "percent_statements_covered": 100.0,
+      "percent_statements_covered_display": "100"
+    },
+    "src/autocarto/contracts.py": {
+      "covered_lines": 150,
+      "num_statements": 155,
+      "percent_covered": 96.7741935483871,
+      "percent_covered_display": "97",
+      "missing_lines": 5,
+      "excluded_lines": 3,
+      "percent_statements_covered": 96.7741935483871,
+      "percent_statements_covered_display": "97"
+    },
+    "src/autocarto/data_fabric/__init__.py": {
+      "covered_lines": 2,
+      "num_statements": 2,
+      "percent_covered": 100.0,
+      "percent_covered_display": "100",
+      "missing_lines": 0,
+      "excluded_lines": 0,
+      "percent_statements_covered": 100.0,
+      "percent_statements_covered_display": "100"
+    },
+    "src/autocarto/data_fabric/connectors/__init__.py": {
+      "covered_lines": 0,
+      "num_statements": 0,
+      "percent_covered": 100.0,
+      "percent_covered_display": "100",
+      "missing_lines": 0,
+      "excluded_lines": 0,
+      "percent_statements_covered": 100.0,
+      "percent_statements_covered_display": "100"
+    },
+    "src/autocarto/data_fabric/connectors/acs.py": {
+      "covered_lines": 34,
+      "num_statements": 44,
+      "percent_covered": 77.27272727272727,
+      "percent_covered_display": "77",
+      "missing_lines": 10,
+      "excluded_lines": 0,
+      "percent_statements_covered": 77.27272727272727,
+      "percent_statements_covered_display": "77"
+    },
+    "src/autocarto/data_fabric/connectors/cdc_places.py": {
+      "covered_lines": 23,
+      "num_statements": 30,
+      "percent_covered": 76.66666666666667,
+      "percent_covered_display": "77",
+      "missing_lines": 7,
+      "excluded_lines": 0,
+      "percent_statements_covered": 76.66666666666667,
+      "percent_statements_covered_display": "77"
+    },
+    "src/autocarto/data_fabric/embedders.py": {
+      "covered_lines": 11,
+      "num_statements": 23,
+      "percent_covered": 47.82608695652174,
+      "percent_covered_display": "48",
+      "missing_lines": 12,
+      "excluded_lines": 0,
+      "percent_statements_covered": 47.82608695652174,
+      "percent_statements_covered_display": "48"
+    },
+    "src/autocarto/data_fabric/hybrid_retrieval.py": {
+      "covered_lines": 157,
+      "num_statements": 171,
+      "percent_covered": 91.81286549707602,
+      "percent_covered_display": "92",
+      "missing_lines": 14,
+      "excluded_lines": 0,
+      "percent_statements_covered": 91.81286549707602,
+      "percent_statements_covered_display": "92"
+    },
+    "src/autocarto/data_fabric/metadata_scorer.py": {
+      "covered_lines": 68,
+      "num_statements": 68,
+      "percent_covered": 100.0,
+      "percent_covered_display": "100",
+      "missing_lines": 0,
+      "excluded_lines": 0,
+      "percent_statements_covered": 100.0,
+      "percent_statements_covered_display": "100"
+    },
+    "src/autocarto/data_fabric/stac_indexer.py": {
+      "covered_lines": 0,
+      "num_statements": 34,
+      "percent_covered": 0.0,
+      "percent_covered_display": "0",
+      "missing_lines": 34,
+      "excluded_lines": 0,
+      "percent_statements_covered": 0.0,
+      "percent_statements_covered_display": "0"
+    },
+    "src/autocarto/demo.py": {
+      "covered_lines": 347,
+      "num_statements": 359,
+      "percent_covered": 96.65738161559888,
+      "percent_covered_display": "97",
+      "missing_lines": 12,
+      "excluded_lines": 0,
+      "percent_statements_covered": 96.65738161559888,
+      "percent_statements_covered_display": "97"
+    },
+    "src/autocarto/demo_data.py": {
+      "covered_lines": 29,
+      "num_statements": 35,
+      "percent_covered": 82.85714285714286,
+      "percent_covered_display": "83",
+      "missing_lines": 6,
+      "excluded_lines": 0,
+      "percent_statements_covered": 82.85714285714286,
+      "percent_statements_covered_display": "83"
+    },
+    "src/autocarto/env.py": {
+      "covered_lines": 31,
+      "num_statements": 31,
+      "percent_covered": 100.0,
+      "percent_covered_display": "100",
+      "missing_lines": 0,
+      "excluded_lines": 0,
+      "percent_statements_covered": 100.0,
+      "percent_statements_covered_display": "100"
+    },
+    "src/autocarto/execution/__init__.py": {
+      "covered_lines": 0,
+      "num_statements": 0,
+      "percent_covered": 100.0,
+      "percent_covered_display": "100",
+      "missing_lines": 0,
+      "excluded_lines": 0,
+      "percent_statements_covered": 100.0,
+      "percent_statements_covered_display": "100"
+    },
+    "src/autocarto/execution/gates/__init__.py": {
+      "covered_lines": 8,
+      "num_statements": 8,
+      "percent_covered": 100.0,
+      "percent_covered_display": "100",
+      "missing_lines": 0,
+      "excluded_lines": 0,
+      "percent_statements_covered": 100.0,
+      "percent_statements_covered_display": "100"
+    },
+    "src/autocarto/execution/gates/gate1_crs.py": {
+      "covered_lines": 47,
+      "num_statements": 52,
+      "percent_covered": 90.38461538461539,
+      "percent_covered_display": "90",
+      "missing_lines": 5,
+      "excluded_lines": 0,
+      "percent_statements_covered": 90.38461538461539,
+      "percent_statements_covered_display": "90"
+    },
+    "src/autocarto/execution/gates/gate2_classification.py": {
+      "covered_lines": 181,
+      "num_statements": 200,
+      "percent_covered": 90.5,
+      "percent_covered_display": "90",
+      "missing_lines": 19,
+      "excluded_lines": 0,
+      "percent_statements_covered": 90.5,
+      "percent_statements_covered_display": "90"
+    },
+    "src/autocarto/execution/gates/gate3a_spatial_autocorrelation.py": {
+      "covered_lines": 60,
+      "num_statements": 62,
+      "percent_covered": 96.7741935483871,
+      "percent_covered_display": "97",
+      "missing_lines": 2,
+      "excluded_lines": 0,
+      "percent_statements_covered": 96.7741935483871,
+      "percent_statements_covered_display": "97"
+    },
+    "src/autocarto/execution/gates/gate3b_bivariate_correlation.py": {
+      "covered_lines": 104,
+      "num_statements": 110,
+      "percent_covered": 94.54545454545455,
+      "percent_covered_display": "95",
+      "missing_lines": 6,
+      "excluded_lines": 0,
+      "percent_statements_covered": 94.54545454545455,
+      "percent_statements_covered_display": "95"
+    },
+    "src/autocarto/execution/gates/gate4_projection_distortion.py": {
+      "covered_lines": 49,
+      "num_statements": 55,
+      "percent_covered": 89.0909090909091,
+      "percent_covered_display": "89",
+      "missing_lines": 6,
+      "excluded_lines": 0,
+      "percent_statements_covered": 89.0909090909091,
+      "percent_statements_covered_display": "89"
+    },
+    "src/autocarto/execution/gates/gate5_color_accessibility.py": {
+      "covered_lines": 114,
+      "num_statements": 122,
+      "percent_covered": 93.44262295081967,
+      "percent_covered_display": "93",
+      "missing_lines": 8,
+      "excluded_lines": 2,
+      "percent_statements_covered": 93.44262295081967,
+      "percent_statements_covered_display": "93"
+    },
+    "src/autocarto/execution/gates/gate6_completeness.py": {
+      "covered_lines": 29,
+      "num_statements": 29,
+      "percent_covered": 100.0,
+      "percent_covered_display": "100",
+      "missing_lines": 0,
+      "excluded_lines": 0,
+      "percent_statements_covered": 100.0,
+      "percent_statements_covered_display": "100"
+    },
+    "src/autocarto/execution/sandbox.py": {
+      "covered_lines": 188,
+      "num_statements": 223,
+      "percent_covered": 84.30493273542601,
+      "percent_covered_display": "84",
+      "missing_lines": 35,
+      "excluded_lines": 0,
+      "percent_statements_covered": 84.30493273542601,
+      "percent_statements_covered_display": "84"
+    },
+    "src/autocarto/offline.py": {
+      "covered_lines": 5,
+      "num_statements": 5,
+      "percent_covered": 100.0,
+      "percent_covered_display": "100",
+      "missing_lines": 0,
+      "excluded_lines": 0,
+      "percent_statements_covered": 100.0,
+      "percent_statements_covered_display": "100"
+    },
+    "src/autocarto/orchestrator.py": {
+      "covered_lines": 194,
+      "num_statements": 224,
+      "percent_covered": 86.60714285714286,
+      "percent_covered_display": "87",
+      "missing_lines": 30,
+      "excluded_lines": 0,
+      "percent_statements_covered": 86.60714285714286,
+      "percent_statements_covered_display": "87"
+    },
+    "src/autocarto/real_data.py": {
+      "covered_lines": 39,
+      "num_statements": 46,
+      "percent_covered": 84.78260869565217,
+      "percent_covered_display": "85",
+      "missing_lines": 7,
+      "excluded_lines": 0,
+      "percent_statements_covered": 84.78260869565217,
+      "percent_statements_covered_display": "85"
+    },
+    "src/autocarto/run_cli.py": {
+      "covered_lines": 64,
+      "num_statements": 81,
+      "percent_covered": 79.01234567901234,
+      "percent_covered_display": "79",
+      "missing_lines": 17,
+      "excluded_lines": 0,
+      "percent_statements_covered": 79.01234567901234,
+      "percent_statements_covered_display": "79"
+    },
+    "src/autocarto/semantic/__init__.py": {
+      "covered_lines": 0,
+      "num_statements": 0,
+      "percent_covered": 100.0,
+      "percent_covered_display": "100",
+      "missing_lines": 0,
+      "excluded_lines": 0,
+      "percent_statements_covered": 100.0,
+      "percent_statements_covered_display": "100"
+    },
+    "src/autocarto/semantic/codegen.py": {
+      "covered_lines": 48,
+      "num_statements": 49,
+      "percent_covered": 97.95918367346938,
+      "percent_covered_display": "98",
+      "missing_lines": 1,
+      "excluded_lines": 0,
+      "percent_statements_covered": 97.95918367346938,
+      "percent_statements_covered_display": "98"
+    },
+    "src/autocarto/semantic/llm_client.py": {
+      "covered_lines": 54,
+      "num_statements": 56,
+      "percent_covered": 96.42857142857143,
+      "percent_covered_display": "96",
+      "missing_lines": 2,
+      "excluded_lines": 0,
+      "percent_statements_covered": 96.42857142857143,
+      "percent_statements_covered_display": "96"
+    },
+    "src/autocarto/semantic/nvidia_llm.py": {
+      "covered_lines": 119,
+      "num_statements": 160,
+      "percent_covered": 74.375,
+      "percent_covered_display": "74",
+      "missing_lines": 41,
+      "excluded_lines": 0,
+      "percent_statements_covered": 74.375,
+      "percent_statements_covered_display": "74"
+    },
+    "src/autocarto/styles/__init__.py": {
+      "covered_lines": 9,
+      "num_statements": 9,
+      "percent_covered": 100.0,
+      "percent_covered_display": "100",
+      "missing_lines": 0,
+      "excluded_lines": 0,
+      "percent_statements_covered": 100.0,
+      "percent_statements_covered_display": "100"
+    },
+    "src/autocarto/web/__init__.py": {
+      "covered_lines": 0,
+      "num_statements": 0,
+      "percent_covered": 100.0,
+      "percent_covered_display": "100",
+      "missing_lines": 0,
+      "excluded_lines": 0,
+      "percent_statements_covered": 100.0,
+      "percent_statements_covered_display": "100"
+    },
+    "src/autocarto/web/app.py": {
+      "covered_lines": 51,
+      "num_statements": 63,
+      "percent_covered": 80.95238095238095,
+      "percent_covered_display": "81",
+      "missing_lines": 12,
+      "excluded_lines": 0,
+      "percent_statements_covered": 80.95238095238095,
+      "percent_statements_covered_display": "81"
+    },
+    "src/autocarto/web/engine.py": {
+      "covered_lines": 193,
+      "num_statements": 208,
+      "percent_covered": 92.78846153846153,
+      "percent_covered_display": "93",
+      "missing_lines": 15,
+      "excluded_lines": 0,
+      "percent_statements_covered": 92.78846153846153,
+      "percent_statements_covered_display": "93"
+    }
+  }
+}

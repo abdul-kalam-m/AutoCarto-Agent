@@ -168,7 +168,9 @@ class MapResult:
     insufficiency_report: Optional[str] = None
 
     def trace_json(self) -> str:
-        return json.dumps(self.trace, indent=2, sort_keys=False)
+        from autocarto.traces import validate_document
+        validate_document(self.trace)
+        return json.dumps(self.trace, indent=2, sort_keys=False, allow_nan=False)
 
 
 class Orchestrator:
@@ -195,6 +197,8 @@ class Orchestrator:
 
     def run(self, prompt: str, dataset: Dataset) -> MapResult:
         trace: Dict[str, Any] = {
+            "kind": "orchestrator-trace",
+            "version": 1,
             "prompt": prompt,
             "dataset_id": dataset.id,
             "seed": self.seed,

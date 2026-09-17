@@ -1,0 +1,15 @@
+.git
+.env
+.env.*
+.venv
+.web-cache
+**/node_modules
+**/__pycache__
+.pytest_cache
+web/dist
+src/autocarto/web/static
+artifacts
+output
+paper
+Fable Review
+*.egg-info

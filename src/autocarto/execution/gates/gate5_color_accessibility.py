@@ -225,7 +225,7 @@ class ColorAccessibilityGate:
         worst_delta_e = float("inf")
         worst_pair: Optional[Tuple[int, int]] = None
         worst_cvd: Optional[str] = None
-        per_cvd_min: Dict[str, float] = {}
+        per_cvd_min: Dict[str, Optional[float]] = {}
 
         for cvd_type in CVD_TYPES:
             sim_rgbs = [_simulate_cvd(r, cvd_type) for r in rgbs]
@@ -235,7 +235,7 @@ class ColorAccessibilityGate:
                 min_de_this_type = min(min_de_this_type, de)
                 if de < worst_delta_e:
                     worst_delta_e, worst_pair, worst_cvd = de, (i, i + 1), cvd_type
-            per_cvd_min[cvd_type] = round(min_de_this_type, 2)
+            per_cvd_min[cvd_type] = round(min_de_this_type, 2) if np.isfinite(min_de_this_type) else None
 
         diagnostics["min_delta_e_by_cvd_type"] = per_cvd_min
         diagnostics["worst_delta_e"] = round(worst_delta_e, 2) if np.isfinite(worst_delta_e) else None

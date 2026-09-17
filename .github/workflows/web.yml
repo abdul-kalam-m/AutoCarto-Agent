@@ -1,0 +1,25 @@
+name: Web workspace
+on:
+  push:
+    paths: ['web/**', 'src/autocarto/**', 'tests/test_beta.py', 'tests/test_web.py', 'tests/test_workspace.py', 'tests/test_snapshot_nj_web.py', 'scripts/snapshot_nj_web.py', 'pyproject.toml', 'constraints-ci.txt', 'constraints-web-linux.txt', 'compose.beta.yml', 'render.yaml', 'Dockerfile.web', '.github/workflows/web.yml']
+  pull_request:
+    paths: ['web/**', 'src/autocarto/**', 'tests/test_beta.py', 'tests/test_web.py', 'tests/test_workspace.py', 'tests/test_snapshot_nj_web.py', 'scripts/snapshot_nj_web.py', 'pyproject.toml', 'constraints-ci.txt', 'constraints-web-linux.txt', 'compose.beta.yml', 'render.yaml', 'Dockerfile.web', '.github/workflows/web.yml']
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: python -m pip install -c constraints-ci.txt -c constraints-web-linux.txt -e '.[web,geo]' pytest
+      - run: python -m pytest tests/test_beta.py tests/test_web.py tests/test_workspace.py tests/test_snapshot_nj_web.py tests/gates/test_gate2.py tests/gates/test_gate5.py tests/test_contracts.py
+      - run: npm ci && npm run build
+        working-directory: web
+      - run: docker build -f Dockerfile.web -t cartollm-web:ci .

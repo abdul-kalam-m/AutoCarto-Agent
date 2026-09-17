@@ -51,3 +51,14 @@ paper/submission/latex/main.pdf
 # OS noise
 Thumbs.db
 .DS_Store
+
+# Web workspace
+node_modules/
+web/dist/
+src/autocarto/web/static/
+.web-cache/
+playwright-report/
+*.tsbuildinfo
+.coverage
+htmlcov/
+coverage.json

@@ -1,0 +1,987 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CartoLLM versioned workspace and validation traces",
+  "description": "Workspace v2 and v3 restore exact pinned snapshots; v3 adds historical park points. Web and orchestrator traces use v1. Unknown kinds, versions and fields are rejected.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/workspace"
+    },
+    {
+      "$ref": "#/$defs/webTrace"
+    },
+    {
+      "$ref": "#/$defs/orchestratorTrace"
+    },
+    {
+      "$ref": "#/$defs/workspaceV3"
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "settings": {
+      "type": "object",
+      "properties": {
+        "metric": {
+          "enum": [
+            "density",
+            "population",
+            "income"
+          ]
+        },
+        "palette": {
+          "enum": [
+            "forest",
+            "ocean",
+            "violet",
+            "sunset"
+          ]
+        },
+        "method": {
+          "enum": [
+            "auto",
+            "quantile",
+            "jenks",
+            "equal_interval"
+          ]
+        }
+      },
+      "required": [
+        "metric",
+        "palette",
+        "method"
+      ],
+      "additionalProperties": false
+    },
+    "dataset": {
+      "type": "object",
+      "properties": {
+        "version_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "required": [
+        "version_id",
+        "sha256"
+      ],
+      "additionalProperties": false
+    },
+    "datasets": {
+      "type": "object",
+      "properties": {
+        "counties": {
+          "$ref": "#/$defs/dataset"
+        },
+        "parks": {
+          "$ref": "#/$defs/dataset"
+        }
+      },
+      "required": [
+        "counties",
+        "parks"
+      ],
+      "additionalProperties": false
+    },
+    "prescription": {
+      "type": "object",
+      "properties": {
+        "method": {
+          "type": "string"
+        },
+        "instruction": {
+          "type": "string"
+        },
+        "params": {
+          "type": "object"
+        },
+        "code_snippet": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "method",
+        "instruction",
+        "params",
+        "code_snippet"
+      ],
+      "additionalProperties": false
+    },
+    "gate": {
+      "type": "object",
+      "properties": {
+        "gate": {
+          "enum": [
+            "G1",
+            "G2",
+            "G3a",
+            "G3b",
+            "G4",
+            "G5",
+            "G6"
+          ]
+        },
+        "decision": {
+          "enum": [
+            "PASS",
+            "WARN",
+            "REJECT"
+          ]
+        },
+        "passed": {
+          "type": "boolean"
+        },
+        "diagnostics": {
+          "type": "object"
+        },
+        "prescription": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/prescription"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "instruction": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "gate",
+        "decision",
+        "passed",
+        "diagnostics",
+        "prescription",
+        "instruction"
+      ],
+      "additionalProperties": false
+    },
+    "plan": {
+      "type": "object",
+      "properties": {
+        "dataset_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "dataset_version_id": {
+          "type": "string"
+        },
+        "metric": {
+          "enum": [
+            "density",
+            "population",
+            "income"
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
+        "unit": {
+          "type": "string"
+        },
+        "requested_method": {
+          "enum": [
+            "auto",
+            "quantile",
+            "jenks",
+            "equal_interval"
+          ]
+        },
+        "method": {
+          "type": "string"
+        },
+        "requested_palette": {
+          "enum": [
+            "forest",
+            "ocean",
+            "violet",
+            "sunset"
+          ]
+        },
+        "palette_adjusted": {
+          "type": "boolean"
+        },
+        "breaks": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 20
+        },
+        "colors": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^#[a-fA-F0-9]{6}$"
+          },
+          "maxItems": 20
+        },
+        "legend": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "min": {
+                "type": "number"
+              },
+              "max": {
+                "type": "number"
+              },
+              "color": {
+                "type": "string"
+              },
+              "inclusive_min": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "min",
+              "max",
+              "color",
+              "inclusive_min"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 20
+        },
+        "summary": {
+          "type": "object",
+          "properties": {
+            "min": {
+              "type": "number"
+            },
+            "max": {
+              "type": "number"
+            },
+            "top_county": {
+              "type": "string"
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "min",
+            "max",
+            "top_county",
+            "count"
+          ],
+          "additionalProperties": false
+        },
+        "validation": {
+          "type": "object",
+          "properties": {
+            "classification": {
+              "$ref": "#/$defs/gate"
+            },
+            "color": {
+              "$ref": "#/$defs/gate"
+            },
+            "trace": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/gate"
+              },
+              "maxItems": 30
+            },
+            "scope": {
+              "type": "string"
+            },
+            "display_note": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "classification",
+            "color",
+            "trace",
+            "scope",
+            "display_note"
+          ],
+          "additionalProperties": false
+        },
+        "source": {
+          "type": "string"
+        },
+        "plan_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{16}$"
+        }
+      },
+      "required": [
+        "dataset_sha256",
+        "dataset_version_id",
+        "metric",
+        "title",
+        "unit",
+        "requested_method",
+        "method",
+        "requested_palette",
+        "palette_adjusted",
+        "breaks",
+        "colors",
+        "legend",
+        "summary",
+        "validation",
+        "source",
+        "plan_id"
+      ],
+      "additionalProperties": false
+    },
+    "parkPlan": {
+      "type": "object",
+      "properties": {
+        "dataset_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "dataset_version_id": {
+          "type": "string"
+        },
+        "field": {
+          "const": "FEATURE_CLASS"
+        },
+        "categories": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "value": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "color": {
+                "type": "string",
+                "pattern": "^#[a-fA-F0-9]{6}$"
+              },
+              "count": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": [
+              "value",
+              "label",
+              "color",
+              "count"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 30
+        },
+        "validation": {
+          "type": "object",
+          "properties": {
+            "color": {
+              "$ref": "#/$defs/gate"
+            },
+            "trace": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/gate"
+              },
+              "maxItems": 500
+            },
+            "scope": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "color",
+            "trace",
+            "scope"
+          ],
+          "additionalProperties": false
+        },
+        "plan_id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{16}$"
+        }
+      },
+      "required": [
+        "dataset_sha256",
+        "dataset_version_id",
+        "field",
+        "categories",
+        "validation",
+        "plan_id"
+      ],
+      "additionalProperties": false
+    },
+    "webTrace": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "web-map-trace"
+        },
+        "version": {
+          "const": 1
+        },
+        "plan": {
+          "$ref": "#/$defs/plan"
+        },
+        "parks": {
+          "$ref": "#/$defs/parkPlan"
+        }
+      },
+      "required": [
+        "kind",
+        "version",
+        "plan",
+        "parks"
+      ],
+      "additionalProperties": false
+    },
+    "message": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "role": {
+          "enum": [
+            "assistant",
+            "user"
+          ]
+        },
+        "content": {
+          "type": "string",
+          "maxLength": 8000
+        },
+        "provider": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "result": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string"
+            },
+            "method": {
+              "type": "string"
+            },
+            "plan_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "title",
+            "method",
+            "plan_id"
+          ],
+          "additionalProperties": false
+        },
+        "error": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "role",
+        "content"
+      ],
+      "additionalProperties": false
+    },
+    "view": {
+      "type": "object",
+      "properties": {
+        "center": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "number",
+              "minimum": -180,
+              "maximum": 180
+            },
+            {
+              "type": "number",
+              "minimum": -85,
+              "maximum": 85
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "zoom": {
+          "type": "number",
+          "minimum": 5,
+          "maximum": 15
+        },
+        "bearing": {
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180
+        },
+        "pitch": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 60
+        },
+        "selected_county": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^34[0-9]{3}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "center",
+        "zoom",
+        "bearing",
+        "pitch",
+        "selected_county"
+      ],
+      "additionalProperties": false
+    },
+    "workspace": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "workspace"
+        },
+        "version": {
+          "const": 2
+        },
+        "datasets": {
+          "$ref": "#/$defs/datasets"
+        },
+        "settings": {
+          "$ref": "#/$defs/settings"
+        },
+        "parks": {
+          "type": "boolean"
+        },
+        "visible": {
+          "type": "boolean"
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "outlines": {
+          "type": "boolean"
+        },
+        "basemap": {
+          "enum": [
+            "light",
+            "dark",
+            "satellite"
+          ]
+        },
+        "view": {
+          "$ref": "#/$defs/view"
+        },
+        "messages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/message"
+          },
+          "maxItems": 200
+        },
+        "trace": {
+          "$ref": "#/$defs/webTrace"
+        }
+      },
+      "required": [
+        "kind",
+        "version",
+        "datasets",
+        "settings",
+        "parks",
+        "visible",
+        "opacity",
+        "outlines",
+        "basemap",
+        "view",
+        "messages",
+        "trace"
+      ],
+      "additionalProperties": false
+    },
+    "proposal": {
+      "type": "object",
+      "properties": {
+        "map_type": {
+          "enum": [
+            "choropleth",
+            "bivariate",
+            "proportional_symbol"
+          ]
+        },
+        "variables": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 1000
+        },
+        "variable_roles": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "classification_method": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "classification_breaks": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "number"
+              },
+              "maxItems": 1000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "projection_epsg": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "palette": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "maxItems": 1000
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "diverging_palette": {
+          "type": "boolean"
+        },
+        "template_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "map_purpose": {
+          "enum": [
+            "area_comparison",
+            "shape",
+            "distance"
+          ]
+        },
+        "iteration": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "map_type",
+        "variables",
+        "variable_roles",
+        "classification_method",
+        "classification_breaks",
+        "projection_epsg",
+        "palette",
+        "diverging_palette",
+        "template_id",
+        "map_purpose",
+        "iteration"
+      ],
+      "additionalProperties": false
+    },
+    "iteration": {
+      "type": "object",
+      "properties": {
+        "iteration": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "llm_call": {
+          "type": "object",
+          "properties": {
+            "provider": {
+              "type": "string"
+            },
+            "model": {
+              "type": "string"
+            },
+            "version": {
+              "type": "string"
+            },
+            "prompt_hash": {
+              "type": "string",
+              "pattern": "^([a-f0-9]{16}|[a-f0-9]{64})$",
+              "description": "Existing CLI context hashes use 16 hex characters; full SHA-256 records use 64."
+            },
+            "temperature": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "provider",
+            "model",
+            "version",
+            "prompt_hash",
+            "temperature"
+          ],
+          "additionalProperties": false
+        },
+        "proposal": {
+          "$ref": "#/$defs/proposal"
+        },
+        "gate_suite": {
+          "type": "object",
+          "properties": {
+            "decision": {
+              "enum": [
+                "PASS",
+                "WARN",
+                "REJECT"
+              ]
+            },
+            "gates": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/gate"
+              },
+              "maxItems": 10
+            },
+            "rejection_count": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "decision",
+            "gates",
+            "rejection_count"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "iteration",
+        "llm_call",
+        "proposal",
+        "gate_suite"
+      ],
+      "additionalProperties": false
+    },
+    "orchestratorTrace": {
+      "type": "object",
+      "properties": {
+        "llm_provider": {
+          "type": "string"
+        },
+        "llm_model": {
+          "type": "string"
+        },
+        "data_source": {
+          "type": "string"
+        },
+        "kind": {
+          "const": "orchestrator-trace"
+        },
+        "version": {
+          "const": 1
+        },
+        "prompt": {
+          "type": "string"
+        },
+        "dataset_id": {
+          "type": "string"
+        },
+        "seed": {
+          "type": "integer"
+        },
+        "max_iter": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "iterations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/iteration"
+          },
+          "maxItems": 1000
+        },
+        "human_review": {
+          "type": "boolean"
+        },
+        "insufficiency_report": {
+          "type": "string"
+        },
+        "intent_unresolved": {
+          "type": "boolean"
+        },
+        "execution_error": {
+          "type": "string"
+        },
+        "gate6": {
+          "$ref": "#/$defs/gate"
+        },
+        "render_success": {
+          "type": "boolean"
+        },
+        "render_error": {
+          "type": "string"
+        },
+        "code_hash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{16}$"
+        }
+      },
+      "required": [
+        "kind",
+        "version",
+        "prompt",
+        "dataset_id",
+        "seed",
+        "max_iter",
+        "iterations"
+      ],
+      "additionalProperties": false
+    },
+    "datasetsV3": {
+      "type": "object",
+      "properties": {
+        "counties": {
+          "$ref": "#/$defs/dataset"
+        },
+        "parks": {
+          "$ref": "#/$defs/dataset"
+        },
+        "park_points": {
+          "$ref": "#/$defs/dataset"
+        }
+      },
+      "required": [
+        "counties",
+        "parks",
+        "park_points"
+      ],
+      "additionalProperties": false
+    },
+    "workspaceV3": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "workspace"
+        },
+        "version": {
+          "const": 3
+        },
+        "datasets": {
+          "$ref": "#/$defs/datasetsV3"
+        },
+        "settings": {
+          "$ref": "#/$defs/settings"
+        },
+        "parks": {
+          "type": "boolean"
+        },
+        "visible": {
+          "type": "boolean"
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "outlines": {
+          "type": "boolean"
+        },
+        "basemap": {
+          "enum": [
+            "light",
+            "dark",
+            "satellite"
+          ]
+        },
+        "view": {
+          "$ref": "#/$defs/view"
+        },
+        "messages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/message"
+          },
+          "maxItems": 200
+        },
+        "trace": {
+          "$ref": "#/$defs/webTrace"
+        },
+        "park_points": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "version",
+        "datasets",
+        "settings",
+        "parks",
+        "visible",
+        "opacity",
+        "outlines",
+        "basemap",
+        "view",
+        "messages",
+        "trace",
+        "park_points"
+      ],
+      "additionalProperties": false
+    }
+  }
+}
