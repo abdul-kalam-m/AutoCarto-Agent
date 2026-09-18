@@ -26,20 +26,36 @@
       "version_id": "njdep-gnis2016-v1-eeed79e3000c9271",
       "features": 394,
       "retrieved_at": "2026-09-17T03:30:34.034660+00:00"
+    },
+    "tracts.geojson": {
+      "sha256": "16c29f6623b1d13eb80b2a0a09ad43d5709f04990ff27b50a482901252c5fd11",
+      "version_id": "nj-tracts-tiger2023-acs2023-v1-16c29f6623b1d13e",
+      "features": 2181,
+      "retrieved_at": "2026-09-17T19:05:41.684282+00:00",
+      "geometry_source": "https://www2.census.gov/geo/tiger/TIGER2023/TRACT/tl_2023_34_tract.zip",
+      "demographics_source": "https://api.census.gov/data/2023/acs/acs5",
+      "coverage": "Full-resolution TIGER/Line 2023 NJ tracts, ACS 2019\u20132023 estimates and 90% MOEs. Density uses TIGER land area. Negative ACS sentinels become null (unavailable/suppressed); zero population is retained. Geometric proximity is not access or population served.",
+      "missing": {
+        "population": 0,
+        "income": 27,
+        "density": 6
+      }
     }
   },
   "sources": {
     "counties": "https://maps.nj.gov/arcgis/rest/services/Framework/Government_Boundaries/MapServer/1",
     "demographics": "https://api.census.gov/data/2023/acs/acs5",
     "parks": "https://mapsdep.nj.gov/arcgis/rest/services/Features/Land/MapServer/67",
-    "park_points": "https://mapsdep.nj.gov/arcgis/rest/services/Features/Land/MapServer/5"
+    "park_points": "https://mapsdep.nj.gov/arcgis/rest/services/Features/Land/MapServer/5",
+    "tracts": "https://www2.census.gov/geo/tiger/TIGER2023/TRACT/tl_2023_34_tract.zip"
   },
   "demographics_vintage": "2019\u20132023 ACS 5-year estimates",
   "parks_vintage": "NJDEP administered Open Space (State Owned) Generalized; pinned service snapshot",
   "coverage": {
     "counties": "All 21 New Jersey counties; ACS 2019\u20132023 five-year estimates, not current-year estimates.",
     "parks": "NJDEP-administered state-owned open space only. Excludes a comprehensive inventory of municipal, county, federal and private parks. USE_DESIGNATION and PUBLIC_ACCESS are source attributes; use facility links for restrictions and current operating information.",
-    "park_points": "Historical GNIS 2016 named park locations, not park boundaries or entrances. Public access is not verified; these points are separate from current state-owned open-space polygons."
+    "park_points": "Historical GNIS 2016 named park locations, not park boundaries or entrances. Public access is not verified; these points are separate from current state-owned open-space polygons.",
+    "tracts": "Full-resolution TIGER/Line 2023 NJ tracts, ACS 2019\u20132023 estimates and 90% MOEs. Density uses TIGER land area. Negative ACS sentinels become null (unavailable/suppressed); zero population is retained. Geometric proximity is not access or population served."
   },
   "parks_source": {
     "layer_id": 67,

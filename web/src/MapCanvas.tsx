@@ -6,6 +6,7 @@ import maplibregl, {
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { GeoData, MapPlan, County, ParkPlan, MapView } from "./types";
+import type { LayerId } from "./layers";
 
 export type Basemap = "light" | "dark" | "satellite";
 export function basemapAttribution(
@@ -85,6 +86,7 @@ export default function MapCanvas({
   parksData,
   pointData,
   parkPoints,
+  layerOrder,
   parkPlan,
   view,
   plan,
@@ -103,6 +105,7 @@ export default function MapCanvas({
   parksData: GeoData;
   pointData: GeoData;
   parkPoints: boolean;
+  layerOrder: LayerId[];
   parkPlan: ParkPlan;
   view: MapView | null;
   plan: MapPlan;
@@ -120,6 +123,7 @@ export default function MapCanvas({
   const container = useRef<HTMLDivElement>(null);
   const instance = useRef<MapInstance | null>(null);
   const latest = useRef({
+    counties, parksData, pointData, layerOrder,
     parkPoints,
     plan,
     parks,
@@ -131,6 +135,7 @@ export default function MapCanvas({
     onViewChange,
   });
   latest.current = {
+    counties, parksData, pointData, layerOrder,
     parkPoints,
     plan,
     parks,
@@ -176,7 +181,7 @@ export default function MapCanvas({
     map.setLayoutProperty(
       "county-lines",
       "visibility",
-      p.outlines ? "visible" : "none",
+      p.outlines && p.visible ? "visible" : "none",
     );
     map.setLayoutProperty(
       "park-fill",
@@ -194,6 +199,15 @@ export default function MapCanvas({
       p.selected?.id || "",
     ]);
     if (map.getLayer("park-points")) map.setLayoutProperty("park-points", "visibility", p.parkPoints ? "visible" : "none");
+    const groups: Record<LayerId, string[]> = { counties: ["county-fill", "county-lines"], parks: ["park-fill", "park-lines"], park_points: ["park-points"] };
+    for (const id of p.layerOrder) for (const layer of groups[id]) if (map.getLayer(layer)) map.moveLayer(layer);
+    // Derived analysis stays above the base thematic stack after every style
+    // change, rather than being covered by a newly reordered polygon layer.
+    for (const id of ["p2-tract-fill", "p2-tract-line", "p2-matches", "p2-buffer-fill", "p2-buffer-line"]) if (map.getLayer(id)) map.moveLayer(id);
+    for (const layer of map.getStyle().layers || []) if (layer.id.startsWith("p2-ref-")) map.moveLayer(layer.id);
+    if (map.getLayer("p2-tract-fill") && map.getLayoutProperty("p2-tract-fill", "visibility") === "visible") map.moveLayer("park-points");
+    if (map.getLayer("place-labels")) map.moveLayer("place-labels");
+    map.moveLayer("selected-county");
   }
 
   useEffect(() => {
@@ -245,9 +259,9 @@ export default function MapCanvas({
         setTileError(true);
     });
     map.on("style.load", () => {
-      map.addSource("counties", { type: "geojson", data: counties });
-      map.addSource("parks", { type: "geojson", data: parksData });
-      map.addSource("park-points", { type: "geojson", data: pointData });
+      map.addSource("counties", { type: "geojson", data: latest.current.counties });
+      map.addSource("parks", { type: "geojson", data: latest.current.parksData });
+      map.addSource("park-points", { type: "geojson", data: latest.current.pointData });
       map.addLayer({
         id: "county-fill",
         type: "fill",
@@ -359,7 +373,15 @@ export default function MapCanvas({
 
   useEffect(() => {
     if (instance.current) paint(instance.current);
-  }, [plan, parks, parkPoints, visible, opacity, outlines, selected]);
+  }, [plan, parks, parkPoints, layerOrder, visible, opacity, outlines, selected]);
+
+  useEffect(() => {
+    const map = instance.current;
+    for (const [name, data] of [["counties", counties], ["parks", parksData], ["park-points", pointData]] as const) {
+      const source = map?.getSource(name) as maplibregl.GeoJSONSource | undefined;
+      source?.setData(data);
+    }
+  }, [counties, parksData, pointData]);
 
   return (
     <>

@@ -8,6 +8,10 @@ dataset URL fetch, LLM call, or execution of imported code is performed.
 | Kind | Version | Purpose |
 | --- | --- | --- |
 | `workspace` | 2 | Restorable UI state with dataset versions and validation trace |
+| `workspace` | 3 | Adds historical park point visibility and snapshot binding |
+| `workspace` | 4 | Adds county filters and configurable drawing order |
+| `workspace` | 5 | Adds tract snapshot, proximity inputs/result hash and live reference selections |
+| `spatial-operation-trace` | 1 | Buffer/intersection inputs, verdicts, matched tract IDs and provenance |
 | `web-map-trace` | 1 | County G2/G5 and open-space categorical G5 audit plans |
 | `orchestrator-trace` | 1 | Existing CLI proposal/gate iterations and render outcome |
 
@@ -29,7 +33,12 @@ normal floating-point differences after MapLibre restores a view.
 An export is also validated by the same endpoint before download. Files
 contain a maximum of 200 messages (8,000 characters each). Oversized history
 is rejected rather than silently truncated. PNG and GeoJSON are exports, not
-workspace import formats. Layer order is currently fixed, not user-configurable.
+workspace import formats. Workspace v4 stores drawing order bottom to top in
+`layer_order`, with each layer appearing exactly once. `county_filter` stores
+unique county FIPS IDs; an empty array displays all counties. Filtering selects
+whole features by county attributes, without clipping geometries or changing
+the statewide classification breaks. Multi-county park features remain whole
+when any county matches; features without a matching county attribute are hidden.
 
 ## Compatibility
 
@@ -37,7 +46,7 @@ The pre-schema `version: 1` web file was an audit-only record: it omitted the
 camera and county visibility and referenced the retired GNIS point dataset.
 It is explicitly rejected rather than silently assigning the new polygon
 data or inventing missing state. Retain it as an audit artifact. New exports
-use workspace v2; they require the exact pinned datasets and matching engine
+use workspace v5; they require the exact pinned datasets and matching engine
 results. Restore earlier snapshots from version control for old v2 files.
 
 Any future incompatible format change needs a new version plus an explicit,
@@ -76,7 +85,18 @@ production build passing. The pre-change coverage measurement is preserved
 separately in [coverage-baseline.md](coverage-baseline.md).
 
 Workspace v3 adds required `park_points` visibility and a `datasets.park_points`
-version/checksum binding. The browser exports v3. V2 remains importable unchanged;
-its missing point layer opens disabled, and the next browser save writes v3 with
+version/checksum binding. The browser exports v5. V2 remains importable unchanged;
+its missing point layer opens disabled, and the next browser save writes v5 with
 the current point snapshot explicitly bound. Existing county/polygon bindings
-and traces must still match exactly. Both versions store chat in `messages`.
+and traces must still match exactly. All versions store chat in `messages`.
+V2 and v3 open with all counties and the default drawing order (counties, open
+space, then park points). Their existing trace format is preserved.
+
+V5 adds `phase2`: tract visibility, `distance_m`, `result_id`, and selected live
+reference IDs in drawing order. It binds the tract snapshot. Import recomputes
+proximity and checks its result hash, including gate verdicts and matched IDs.
+Changing county filters clears proximity; rerun it for the new target tract set.
+All NJ park points remain candidates across borders. V2/v3/v4 remain supported.
+Live references are never fetched on import; their selections restore but the
+user must load an extent again. Downloaded reference GeoJSON carries retrieval
+time, extent, source, count and checksum; it is not an accepted analysis input.

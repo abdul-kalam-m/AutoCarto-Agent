@@ -60,9 +60,9 @@ class Intent(BaseModel):
     statewide: bool = False
 
 
-@lru_cache(maxsize=4)
+@lru_cache(maxsize=5)
 def read_data(name: str):
-    if name not in {"manifest", "counties", "parks", "park_points"}:
+    if name not in {"manifest", "counties", "parks", "park_points", "tracts"}:
         raise ValueError("Unknown dataset")
     path = DATA / (name + (".json" if name == "manifest" else ".geojson"))
     content = path.read_bytes()
@@ -126,8 +126,10 @@ def _snap_roundtrip_breaks(breaks, values):
 
 
 @lru_cache(maxsize=48)
-def _plan(metric: str, palette: str, method: str):
-    features = read_data("counties")["features"]
+def _plan(metric: str, palette: str, method: str, dataset: str = "counties"):
+    features = read_data(dataset)["features"]
+    missing = sum(f["properties"][metric] is None for f in features)
+    features = [f for f in features if f["properties"][metric] is not None]
     values = np.array([f["properties"][metric] for f in features], dtype=float)
     if not np.isfinite(values).all():
         raise ValueError("Dataset contains missing or invalid values")
@@ -167,6 +169,13 @@ def _plan(metric: str, palette: str, method: str):
     adjusted = False
     if not color_gate.passed:
         colors = color_gate.prescription.params["palette"]
+        if dataset == "tracts" and len(colors) != count:
+            # G2 can prescribe eight head/tail classes. Do not collapse its
+            # classes to fit the nearest built-in G5 ramp. Propose monotonic
+            # lightness and submit the full class count to G5 again.
+            from colorspacious import cspace_convert
+            rgb = cspace_convert(np.array([[lightness, 0, 0] for lightness in np.linspace(95, 5, count)]), "CIELab", "sRGB1")
+            colors = ["#" + "".join(f"{round(float(np.clip(value, 0, 1)) * 255):02x}" for value in row) for row in rgb]
         color_gate = ColorAccessibilityGate().evaluate(colors, variable_names=[metric])
         trace.append(color_gate.to_dict())
         adjusted = True
@@ -175,8 +184,8 @@ def _plan(metric: str, palette: str, method: str):
     legend = [{"min": float(breaks[i]), "max": float(breaks[i + 1]), "color": colors[i], "inclusive_min": i == 0} for i in range(count)]
     ranked = sorted((f["properties"] for f in features), key=lambda p: p[metric], reverse=True)
     payload = {
-        "dataset_sha256": read_data("manifest")["files"]["counties.geojson"]["sha256"],
-        "dataset_version_id": read_data("manifest")["files"]["counties.geojson"]["version_id"],
+        "dataset_sha256": read_data("manifest")["files"][dataset + ".geojson"]["sha256"],
+        "dataset_version_id": read_data("manifest")["files"][dataset + ".geojson"]["version_id"],
         "metric": metric, "title": METRICS[metric]["name"], "unit": METRICS[metric]["unit"],
         "requested_method": method, "method": proposed, "requested_palette": palette,
         "palette_adjusted": adjusted, "breaks": breaks, "colors": colors, "legend": legend,
@@ -186,6 +195,10 @@ def _plan(metric: str, palette: str, method: str):
             "display_note": "Web Mercator (EPSG:3857) for exploration. Opacity and basemap compositing are not covered by the palette check."},
         "source": "U.S. Census Bureau, 2019–2023 ACS 5-year estimates; NJOGIS county boundaries.",
     }
+    if dataset == "tracts":
+        payload["source"] = "U.S. Census Bureau, TIGER/Line 2023 tracts; ACS 2019–2023 estimates and 90% MOEs. Density uses land area."
+        payload["summary"]["missing"] = missing
+        payload["title"] += " · Census tracts"
     payload["plan_id"] = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:16]
     return payload
 

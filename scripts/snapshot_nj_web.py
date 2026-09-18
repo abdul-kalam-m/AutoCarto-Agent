@@ -80,7 +80,9 @@ def promote(staged):
     manifest = json.loads((staged / "manifest.json").read_text(encoding="utf-8"))
     if manifest.get("manifest_version") != 2 or manifest["sources"]["parks"] != PARKS:
         raise ValueError("Only a reviewed layer-67 manifest v2 can be promoted")
-    names = ["counties.geojson", "parks.geojson"] + (["park_points.geojson"] if "park_points.geojson" in manifest["files"] else [])
+    names = ["counties.geojson", "parks.geojson"] + [name for name in ("park_points.geojson", "tracts.geojson") if name in manifest["files"]]
+    if (DEST / "tracts.geojson").exists() and "tracts.geojson" not in names:
+        raise ValueError("Staging manifest omits the installed tract snapshot; preserve it before promotion")
     for name in names:
         raw = (staged / name).read_bytes()
         if hashlib.sha256(raw).hexdigest() != manifest["files"][name]["sha256"]:
@@ -105,7 +107,7 @@ def main():
     if args.points_only:
         args.output.mkdir(parents=True, exist_ok=True)
         manifest = json.loads((DEST / "manifest.json").read_text(encoding="utf-8"))
-        for name in ("counties.geojson", "parks.geojson"):
+        for name in ("counties.geojson", "parks.geojson", *(["tracts.geojson"] if "tracts.geojson" in manifest["files"] else [])):
             shutil.copyfile(DEST / name, args.output / name)
         add_points(args.output, manifest)
         (args.output / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
@@ -191,6 +193,12 @@ def main():
         ],
     }
     add_points(args.output, manifest)
+    existing = json.loads((DEST / "manifest.json").read_text(encoding="utf-8")) if (DEST / "manifest.json").exists() else {}
+    if "tracts.geojson" in existing.get("files", {}):
+        shutil.copyfile(DEST / "tracts.geojson", args.output / "tracts.geojson")
+        manifest["files"]["tracts.geojson"] = existing["files"]["tracts.geojson"]
+        manifest["sources"]["tracts"] = existing["sources"]["tracts"]
+        manifest["coverage"]["tracts"] = existing["coverage"]["tracts"]
     (args.output / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     print(json.dumps(files, indent=2))
 

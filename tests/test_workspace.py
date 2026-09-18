@@ -58,6 +58,31 @@ def test_historical_points_remain_separate_from_current_polygons():
     assert "not verified" in manifest["coverage"]["park_points"]
 
 
+def test_v4_filters_and_drawing_order_roundtrip(workspace):
+    workspace.update(version=4, park_points=True, datasets=dataset_versions(4),
+                     county_filter=["34013", "34017"],
+                     layer_order=["parks", "counties", "park_points"])
+    response = client.post("/api/workspace/import", json=workspace)
+    assert response.status_code == 200, response.text
+    assert response.json() == workspace
+    # Importing a display filter must not reclassify the statewide values.
+    assert response.json()["trace"] == web_trace(workspace["settings"])
+
+
+@pytest.mark.parametrize("field,value", [
+    ("county_filter", ["34999"]),
+    ("county_filter", ["34013", "34013"]),
+    ("layer_order", ["parks", "parks", "counties"]),
+    ("layer_order", ["parks", "counties"]),
+    ("layer_order", ["parks", "counties", "unknown"]),
+])
+def test_v4_rejects_invalid_filters_and_drawing_order(workspace, field, value):
+    workspace.update(version=4, park_points=True, datasets=dataset_versions(4),
+                     county_filter=[], layer_order=["counties", "parks", "park_points"])
+    workspace[field] = value
+    assert client.post("/api/workspace/import", json=workspace).status_code == 422
+
+
 @pytest.mark.parametrize("key,value", [("version", 99), ("version", True), ("kind", "unknown"), ("opacity", -1), ("opacity", 101), ("parks", "true"), ("basemap", "https://evil.test/tiles"), ("extra", "ignored?")])
 def test_import_rejects_invalid_state(workspace, key, value):
     workspace[key] = value

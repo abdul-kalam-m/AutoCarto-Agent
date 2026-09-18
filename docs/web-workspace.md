@@ -82,12 +82,15 @@ LLM calls do not fall back to a different variable. The renderer uses the same
 right-inclusive class convention as G2, including exact-boundary values.
 
 This is an exploratory **Web Mercator** view, not the CLI's fully validated
-publication output. G1, G3a/G3b, G4 and G6 are not run. G5 checks the opaque
+publication output. Analysis & NJ layers runs G1/G4 against the actual display
+(G4 rejects area comparison; G1 also rejects density) and G6 against visible renderer
+elements. G3a/G3b are not run. G5 checks the opaque
 palette, not colors blended with a basemap at reduced opacity. These limits
 are shown in the validation dialog. Count maps are available for exploration;
 population density is the default. Bivariate analysis, numeric filtering,
-buffers and neighborhood/tract analysis are not implemented. Focusing on a
-county zooms the view; it does not change statewide classification.
+and block-group analysis are not implemented. Tract demographics and park-point
+buffer/intersection analysis are available; see [Phase 2](phase2-capability.md).
+County filters select features without changing statewide classification.
 
 Open space uses a separate opaque categorical fill on `FEATURE_CLASS`. G5
 checks every pair in its fixed palette and legend text contrast; categories

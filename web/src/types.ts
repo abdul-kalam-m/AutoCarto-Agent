@@ -39,7 +39,7 @@ export type MapPlan = {
   breaks: number[];
   colors: string[];
   legend: { min: number; max: number; color: string; inclusive_min: boolean }[];
-  summary: { min: number; max: number; top_county: string; count: number };
+  summary: { min: number; max: number; top_county: string; count: number; missing?: number };
   validation: {
     classification: Gate;
     color: Gate;
@@ -65,11 +65,14 @@ export type MapView = {
 };
 export type Workspace = {
   kind: "workspace";
-  version: 2 | 3;
+  version: 2 | 3 | 4 | 5;
+  phase2?: import("./Phase2").Phase2State;
+  county_filter?: string[];
+  layer_order?: import("./layers").LayerId[];
   datasets: Record<
     "counties" | "parks",
     { version_id: string; sha256: string }
-  > & { park_points?: { version_id: string; sha256: string } };
+  > & { park_points?: { version_id: string; sha256: string }; tracts?: { version_id: string; sha256: string } };
   settings: Settings;
   parks: boolean;
   park_points?: boolean;

@@ -37,7 +37,7 @@ if TYPE_CHECKING:
     from autocarto.execution.gates.gate3b_bivariate_correlation import BivariateCorrelationResult
 
 GateDecision = Literal["PASS", "WARN", "REJECT"]
-GateId = Literal["G1", "G2", "G3a", "G3b", "G4", "G5", "G6"]
+GateId = Literal["G1", "G2", "G3a", "G3b", "G4", "G5", "G6", "G7", "G8"]
 
 # Canonical gate execution order (Blueprint §3.6): geometry/projection
 # validity gates the statistics; classification depends on the (possibly

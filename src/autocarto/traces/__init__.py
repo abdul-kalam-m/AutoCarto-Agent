@@ -10,6 +10,7 @@ from jsonschema import Draft202012Validator
 
 MAX_DOCUMENT_BYTES = 1024 * 1024
 VERSIONS = {"workspace": (2, "workspace"), "web-map-trace": (1, "webTrace"), "orchestrator-trace": (1, "orchestratorTrace")}
+VERSIONS["spatial-operation-trace"] = (1, "spatialTrace")
 TIMING_KEYS = frozenset({"retrieval_time_ms", "spatial_filter_time_ms", "exact_refine_time_ms", "semantic_search_time_ms", "execution_time_ms"})
 
 
@@ -46,6 +47,10 @@ def validate_document(document):
     version, definition = VERSIONS[kind]
     if kind == "workspace" and type(document.get("version")) is int and document["version"] == 3:
         version, definition = 3, "workspaceV3"
+    if kind == "workspace" and type(document.get("version")) is int and document["version"] == 4:
+        version, definition = 4, "workspaceV4"
+    if kind == "workspace" and type(document.get("version")) is int and document["version"] == 5:
+        version, definition = 5, "workspaceV5"
     if type(document.get("version")) is not int or document["version"] != version:
         raise ValueError(f"Unsupported {kind} version; this application supports version {version}")
     contract = {"$ref": f"#/$defs/{definition}", "$defs": schema()["$defs"]}

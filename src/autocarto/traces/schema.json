@@ -14,6 +14,15 @@
     },
     {
       "$ref": "#/$defs/workspaceV3"
+    },
+    {
+      "$ref": "#/$defs/workspaceV4"
+    },
+    {
+      "$ref": "#/$defs/workspaceV5"
+    },
+    {
+      "$ref": "#/$defs/spatialTrace"
     }
   ],
   "$defs": {
@@ -131,7 +140,9 @@
             "G3b",
             "G4",
             "G5",
-            "G6"
+            "G6",
+            "G7",
+            "G8"
           ]
         },
         "decision": {
@@ -982,6 +993,364 @@
         "park_points"
       ],
       "additionalProperties": false
+    },
+    "workspaceV4": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "workspace"
+        },
+        "version": {
+          "const": 4
+        },
+        "datasets": {
+          "$ref": "#/$defs/datasetsV3"
+        },
+        "settings": {
+          "$ref": "#/$defs/settings"
+        },
+        "parks": {
+          "type": "boolean"
+        },
+        "visible": {
+          "type": "boolean"
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "outlines": {
+          "type": "boolean"
+        },
+        "basemap": {
+          "enum": [
+            "light",
+            "dark",
+            "satellite"
+          ]
+        },
+        "view": {
+          "$ref": "#/$defs/view"
+        },
+        "messages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/message"
+          },
+          "maxItems": 200
+        },
+        "trace": {
+          "$ref": "#/$defs/webTrace"
+        },
+        "park_points": {
+          "type": "boolean"
+        },
+        "county_filter": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^34[0-9]{3}$"
+          },
+          "uniqueItems": true,
+          "maxItems": 21
+        },
+        "layer_order": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "counties",
+              "parks",
+              "park_points"
+            ]
+          },
+          "uniqueItems": true,
+          "minItems": 3,
+          "maxItems": 3
+        }
+      },
+      "required": [
+        "kind",
+        "version",
+        "datasets",
+        "settings",
+        "parks",
+        "visible",
+        "opacity",
+        "outlines",
+        "basemap",
+        "view",
+        "messages",
+        "trace",
+        "park_points",
+        "county_filter",
+        "layer_order"
+      ],
+      "additionalProperties": false
+    },
+    "phase2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tracts",
+        "distance_m",
+        "overlays",
+        "result_id"
+      ],
+      "properties": {
+        "tracts": {
+          "type": "boolean"
+        },
+        "distance_m": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "result_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "overlays": {
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 5,
+          "items": {
+            "enum": [
+              "parcels",
+              "roads",
+              "infrastructure",
+              "water",
+              "flood"
+            ]
+          }
+        }
+      }
+    },
+    "datasetsV5": {
+      "type": "object",
+      "properties": {
+        "counties": {
+          "$ref": "#/$defs/dataset"
+        },
+        "parks": {
+          "$ref": "#/$defs/dataset"
+        },
+        "park_points": {
+          "$ref": "#/$defs/dataset"
+        },
+        "tracts": {
+          "$ref": "#/$defs/dataset"
+        }
+      },
+      "required": [
+        "counties",
+        "parks",
+        "park_points",
+        "tracts"
+      ],
+      "additionalProperties": false
+    },
+    "workspaceV5": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "workspace"
+        },
+        "version": {
+          "const": 5
+        },
+        "datasets": {
+          "$ref": "#/$defs/datasetsV5"
+        },
+        "settings": {
+          "$ref": "#/$defs/settings"
+        },
+        "parks": {
+          "type": "boolean"
+        },
+        "visible": {
+          "type": "boolean"
+        },
+        "opacity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "outlines": {
+          "type": "boolean"
+        },
+        "basemap": {
+          "enum": [
+            "light",
+            "dark",
+            "satellite"
+          ]
+        },
+        "view": {
+          "$ref": "#/$defs/view"
+        },
+        "messages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/message"
+          },
+          "maxItems": 200
+        },
+        "trace": {
+          "$ref": "#/$defs/webTrace"
+        },
+        "park_points": {
+          "type": "boolean"
+        },
+        "county_filter": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^34[0-9]{3}$"
+          },
+          "uniqueItems": true,
+          "maxItems": 21
+        },
+        "layer_order": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "counties",
+              "parks",
+              "park_points"
+            ]
+          },
+          "uniqueItems": true,
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "phase2": {
+          "$ref": "#/$defs/phase2"
+        }
+      },
+      "required": [
+        "kind",
+        "version",
+        "datasets",
+        "settings",
+        "parks",
+        "visible",
+        "opacity",
+        "outlines",
+        "basemap",
+        "view",
+        "messages",
+        "trace",
+        "park_points",
+        "county_filter",
+        "layer_order",
+        "phase2"
+      ],
+      "additionalProperties": false
+    },
+    "spatialTrace": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "spatial-operation-trace"
+        },
+        "version": {
+          "const": 1
+        },
+        "operation": {
+          "const": "park_point_proximity"
+        },
+        "source": {
+          "const": "park_points"
+        },
+        "distance_m": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "purpose": {
+          "const": "exploratory_proximity"
+        },
+        "counties": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^34[0-9]{3}$"
+          },
+          "uniqueItems": true,
+          "maxItems": 21
+        },
+        "crs": {
+          "const": "EPSG:32111"
+        },
+        "predicate": {
+          "const": "intersects"
+        },
+        "datasets": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "park_points",
+            "tracts"
+          ],
+          "properties": {
+            "park_points": {
+              "$ref": "#/$defs/dataset"
+            },
+            "tracts": {
+              "$ref": "#/$defs/dataset"
+            }
+          }
+        },
+        "matched_tract_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 5000,
+          "items": {
+            "type": "string",
+            "pattern": "^34[0-9]{9}$"
+          }
+        },
+        "tracts_considered": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5000
+        },
+        "trace": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/gate"
+          },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "result_id": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "required": [
+        "kind",
+        "version",
+        "operation",
+        "source",
+        "distance_m",
+        "purpose",
+        "counties",
+        "crs",
+        "predicate",
+        "datasets",
+        "matched_tract_ids",
+        "tracts_considered",
+        "trace",
+        "result_id"
+      ]
     }
   }
 }

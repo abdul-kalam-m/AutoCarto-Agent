@@ -11,7 +11,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from autocarto.web.engine import ChatRequest, MapRequest, catalog, chat, plan, read_data
+from autocarto.web.engine import ChatRequest, MapRequest, Metric, catalog, chat, plan, read_data
 from autocarto.traces import MAX_DOCUMENT_BYTES, parse_document, schema
 from autocarto.web.workspace import import_workspace
 from autocarto.web.accounts import COOKIE, router as accounts_router
@@ -34,6 +34,7 @@ async def lifespan(app):
 app = FastAPI(title="CartoLLM web API", version="0.2.0", lifespan=lifespan, docs_url=None if production() else "/docs", redoc_url=None if production() else "/redoc")
 app.include_router(accounts_router)
 AI_SLOTS = BoundedSemaphore(2)
+SPATIAL_SLOTS = BoundedSemaphore(1)
 
 
 @app.middleware("http")
@@ -117,9 +118,64 @@ async def restore_workspace(request: Request):
 
 @app.get("/api/data/{dataset}")
 def get_data(dataset: str):
-    if dataset not in {"counties", "parks", "park_points"}:
+    if dataset not in {"counties", "parks", "park_points", "tracts"}:
         raise HTTPException(404, "Dataset not found")
     return JSONResponse(read_data(dataset), headers={"Cache-Control": "public, max-age=3600"})
+
+
+from autocarto.web.spatial import ProximityRequest, RenderRequest, proximity, map_geometry_checks, render_check
+from autocarto.web.overlays import OverlayRequest
+
+
+@app.post("/api/tract-map")
+def tract_map(request: MapRequest):
+    from .engine import _plan
+    try:
+        return _plan(request.metric, request.palette, request.method, "tracts")
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from None
+
+
+@app.get("/api/geometry-checks/{dataset}")
+def geometry_checks(dataset: str, metric: Metric = "density"):
+    if dataset not in {"counties", "tracts"}:
+        raise HTTPException(404, "Unknown geometry dataset")
+    return map_geometry_checks(dataset, metric)
+
+
+@app.post("/api/render-check")
+def check_render(request: RenderRequest):
+    return render_check(request)
+
+
+@app.post("/api/proximity")
+def park_proximity(request: ProximityRequest):
+    if not SPATIAL_SLOTS.acquire(blocking=False):
+        raise HTTPException(429, "Spatial analysis is busy. Try again shortly.")
+    try:
+        return proximity(request)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from None
+    finally:
+        SPATIAL_SLOTS.release()
+
+
+@app.get("/api/reference-layers")
+def reference_catalog():
+    from .overlays import catalog
+    return catalog()
+
+
+@app.post("/api/reference-layers/{dataset}")
+def reference_layer(dataset: str, request: OverlayRequest):
+    from .overlays import load
+    import httpx
+    try:
+        return load(dataset, request.bounds)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from None
+    except (httpx.HTTPError, KeyError, TypeError):
+        raise HTTPException(502, "The official reference service is unavailable or changed format. Retry later.") from None
 
 
 @app.post("/api/map")

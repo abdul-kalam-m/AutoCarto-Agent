@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Map as MapInstance } from "maplibre-gl";
 import type { User } from "./AuthGate";
+import Phase2, { EMPTY_PHASE2, type Phase2State } from "./Phase2";
+import { DEFAULT_LAYER_ORDER, LAYER_NAMES, filterCollection, type LayerId } from "./layers";
 import {
   ArrowDownToLine,
   ArrowRight,
@@ -169,6 +171,9 @@ export default function App({ user, onLogout }: { user: User | null; onLogout: (
   const [parksData, setParksData] = useState<GeoData | null>(null);
   const [pointData, setPointData] = useState<GeoData | null>(null);
   const [parkPoints, setParkPoints] = useState(false);
+  const [countyFilter, setCountyFilter] = useState<string[]>([]);
+  const [layerOrder, setLayerOrder] = useState<LayerId[]>(DEFAULT_LAYER_ORDER);
+  const [phase2, setPhase2] = useState<Phase2State>(EMPTY_PHASE2);
   const [plan, setPlan] = useState<MapPlan | null>(null);
   const [parks, setParks] = useState(saved.parks);
   const [visible, setVisible] = useState(true);
@@ -200,6 +205,9 @@ export default function App({ user, onLogout }: { user: User | null; onLogout: (
   const importInput = useRef<HTMLInputElement>(null);
   const [importedView, setImportedView] = useState<MapView | null>(null);
   const [workspaceNotice, setWorkspaceNotice] = useState("");
+  const displayCounties = useMemo(() => counties && filterCollection(counties, countyFilter, catalog?.counties || [], true), [counties, countyFilter, catalog]);
+  const displayParks = useMemo(() => parksData && filterCollection(parksData, countyFilter, catalog?.counties || []), [parksData, countyFilter, catalog]);
+  const displayPoints = useMemo(() => pointData && filterCollection(pointData, countyFilter, catalog?.counties || []), [pointData, countyFilter, catalog]);
   const [projectName, setProjectName] = useState("New Jersey explorer");
   const [projectList, setProjectList] = useState<Pick<Project, "id" | "name" | "revision">[]>([]);
   const [showProjects, setShowProjects] = useState(false);
@@ -216,6 +224,8 @@ export default function App({ user, onLogout }: { user: User | null; onLogout: (
   currentName.current = projectName;
 
   function restore(record: Workspace, sourceCatalog = catalog) {
+    setPhase2(record.phase2 ?? EMPTY_PHASE2);
+    setCountyFilter(record.county_filter ?? []); setLayerOrder(record.layer_order ?? DEFAULT_LAYER_ORDER);
     setSettings(record.settings); setPlan(record.trace.plan); setParks(record.parks); setParkPoints(record.park_points ?? false);
     setVisible(record.visible); setOpacity(record.opacity); setOutlines(record.outlines);
     setBasemap(record.basemap); setMessages(record.messages); setImportedView(record.view);
@@ -256,7 +266,7 @@ export default function App({ user, onLogout }: { user: User | null; onLogout: (
     pending.current = true;
     const timer = setTimeout(() => { void saveProject(); }, 1000);
     return () => clearTimeout(timer);
-  }, [initialized, settings, parks, parkPoints, visible, opacity, outlines, basemap, selected, messages, plan, projectName, cameraRevision, busy]);
+  }, [initialized, settings, parks, parkPoints, countyFilter, layerOrder, phase2, visible, opacity, outlines, basemap, selected, messages, plan, projectName, cameraRevision, busy]);
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
       if (user && (pending.current || saveFlight.current)) { event.preventDefault(); event.returnValue = ""; }
@@ -273,8 +283,12 @@ export default function App({ user, onLogout }: { user: User | null; onLogout: (
     const files = catalog.manifest.files;
     return {
       kind: "workspace",
-      version: 3,
+      version: 5,
+      phase2,
+      county_filter: countyFilter,
+      layer_order: layerOrder,
       datasets: {
+        tracts: { version_id: files["tracts.geojson"].version_id, sha256: files["tracts.geojson"].sha256 },
         park_points: { version_id: files["park_points.geojson"].version_id, sha256: files["park_points.geojson"].sha256 },
         counties: {
           version_id: files["counties.geojson"].version_id,
@@ -352,6 +366,8 @@ export default function App({ user, onLogout }: { user: User | null; onLogout: (
             : "Workspace import failed.",
         );
       const record = result as Workspace;
+      setPhase2(record.phase2 ?? EMPTY_PHASE2);
+      setCountyFilter(record.county_filter ?? []); setLayerOrder(record.layer_order ?? DEFAULT_LAYER_ORDER);
       setSettings(record.settings);
       setPlan(record.trace.plan);
       setParks(record.parks);
@@ -553,8 +569,12 @@ export default function App({ user, onLogout }: { user: User | null; onLogout: (
     }
   }
   function exportData() {
+    if (phase2.tracts || phase2.distance_m !== null || phase2.overlays.length) {
+      setError("Use Analysis & NJ layers to download tract analysis with its verdicts or each loaded reference snapshot with provenance.");
+      return;
+    }
     if (!counties || !plan || !catalog) return;
-    const features: GeoData["features"] = counties.features.map((f) => ({
+    const features: GeoData["features"] = filterCollection(counties, countyFilter, catalog.counties, true).features.map((f) => ({
       ...f,
       properties: {
         ...f.properties,
@@ -564,18 +584,20 @@ export default function App({ user, onLogout }: { user: User | null; onLogout: (
     }));
     if (parks && parksData)
       features.push(
-        ...parksData.features.map((f) => ({
+        ...filterCollection(parksData, countyFilter, catalog.counties).features.map((f) => ({
           ...f,
           properties: { ...f.properties, dataset: "parks" },
         })),
       );
-    if (parkPoints && pointData) features.push(...pointData.features.map(f => ({ ...f, properties: { ...f.properties, dataset: "park_points", mapped_metric: settings.metric } })));
+    if (parkPoints && pointData) features.push(...filterCollection(pointData, countyFilter, catalog.counties).features.map(f => ({ ...f, properties: { ...f.properties, dataset: "park_points", mapped_metric: settings.metric } })));
     download(
       "new-jersey-map.geojson",
       JSON.stringify(
         {
           type: "FeatureCollection",
           metadata: {
+            county_filter: countyFilter, layer_order: layerOrder,
+            filter_note: "County attributes select complete features; geometry is not clipped. Classification remains statewide.",
             sources: catalog.manifest.sources,
             notes: catalog.manifest.notes,
             datasets: catalog.manifest.files,
@@ -591,6 +613,10 @@ export default function App({ user, onLogout }: { user: User | null; onLogout: (
     );
   }
   function exportPNG() {
+    if (phase2.tracts || phase2.distance_m !== null || phase2.overlays.length) {
+      setError("Use Export analysis PNG preview in Analysis & NJ layers to include the tract legend, buffers, reference credits and completeness verdict.");
+      return;
+    }
     const map = mapRef.current;
     if (!map || !plan || !catalog) return;
     const draw = () => {
@@ -611,7 +637,7 @@ export default function App({ user, onLogout }: { user: User | null; onLogout: (
         ctx.fillText(`${plan.title} · New Jersey`, 24, source.height + 36);
         ctx.font = "12px sans-serif";
         ctx.fillText(
-          `${methodName(plan.method)} · ${plan.unit} · Web Mercator EPSG:3857 · ${visible ? "County fill visible" : "County fill hidden"}`,
+          `${methodName(plan.method)} · ${plan.unit} · EPSG:3857 · ${countyFilter.length ? countyFilter.map(id => catalog.counties.find(c => c.id === id)?.name).join(", ") : "All counties"} · Statewide breaks`,
           24,
           source.height + 59,
         );
@@ -704,6 +730,7 @@ export default function App({ user, onLogout }: { user: User | null; onLogout: (
       .includes(dataSearch.toLowerCase()),
   );
   const sortedCounties = [...catalog.counties]
+    .filter(c => !countyFilter.length || countyFilter.includes(c.id))
     .filter((c) => c.name.toLowerCase().includes(countySearch.toLowerCase()))
     .sort((a, b) => b[sortMetric] - a[sortMetric]);
   const gvf = Number(plan.validation.classification.diagnostics.gvf);
@@ -999,6 +1026,17 @@ export default function App({ user, onLogout }: { user: User | null; onLogout: (
             <p className="panel-description">
               Control what your map has to say.
             </p>
+            <details className="county-filter"><summary>County filter · {countyFilter.length || "All 21"}</summary>
+              <button onClick={() => { setPhase2(s => ({ ...s, distance_m: null, result_id: null })); setCountyFilter([]); setSelected(null); }}>Show all counties</button>
+              {catalog.counties.map(c => <label key={c.id}><input type="checkbox" checked={countyFilter.includes(c.id)} onChange={() => { setPhase2(s => ({ ...s, distance_m: null, result_id: null })); setCountyFilter(ids => ids.includes(c.id) ? ids.filter(id => id !== c.id) : [...ids, c.id].sort()); setSelected(null); }} />{c.name}</label>)}
+              <p>Filters use county attributes, preserving whole features. Unassigned features are hidden while filtering. Classification stays statewide.</p>
+            </details>
+            <section className="layer-order" aria-label="Layer drawing order"><strong>Drawing order · top first</strong>
+              {[...layerOrder].reverse().map((id, topIndex) => <div key={id}><span>{LAYER_NAMES[id]}</span>
+                <button aria-label={`Move ${LAYER_NAMES[id]} up`} disabled={topIndex === 0} onClick={() => setLayerOrder(order => { const next = [...order], index = next.indexOf(id); [next[index], next[index + 1]] = [next[index + 1], next[index]]; return next; })}>↑</button>
+                <button aria-label={`Move ${LAYER_NAMES[id]} down`} disabled={topIndex === layerOrder.length - 1} onClick={() => setLayerOrder(order => { const next = [...order], index = next.indexOf(id); [next[index], next[index - 1]] = [next[index - 1], next[index]]; return next; })}>↓</button>
+              </div>)}
+            </section>
             {parks && (
               <div className="layer-card">
                 <span className="layer-swatch parks-swatch">
@@ -1143,17 +1181,18 @@ export default function App({ user, onLogout }: { user: User | null; onLogout: (
           <span className="version-label">v0.1</span>
         </div>
       </aside>
-      <main className="map-area">
+      <main className={`map-area ${phase2.tracts ? "tract-mode" : ""}`}>
         <MapCanvas
-          counties={counties}
-          parksData={parksData}
-          pointData={pointData}
+          counties={displayCounties!}
+          parksData={displayParks!}
+          pointData={displayPoints!}
+          layerOrder={layerOrder}
           parkPoints={parkPoints}
           parkPlan={catalog.park_plan}
           view={importedView}
           plan={plan}
           parks={parks}
-          visible={visible}
+          visible={visible && !phase2.tracts}
           opacity={opacity}
           outlines={outlines}
           basemap={basemap}
@@ -1166,6 +1205,7 @@ export default function App({ user, onLogout }: { user: User | null; onLogout: (
           }}
           onViewChange={() => setCameraRevision(n => n + 1)}
         />
+        <Phase2 map={mapRef.current} state={phase2} onChange={next => { setPhase2(next); if (next.distance_m !== null) setParkPoints(true); }} settings={settings} counties={countyFilter} basePlan={plan} opacity={opacity} outlines={outlines} basemap={basemap} offline={catalog.offline} parks={parks} parkPoints={parkPoints} parkPlan={catalog.park_plan} />
         <div className="map-topbar">
           <button className="export-button" aria-pressed={parkPoints} onClick={() => setParkPoints(value => !value)} title={catalog.manifest.coverage.park_points}>{parkPoints ? "Hide" : "Show"} historical park points</button>
           <div className="map-location">
@@ -1456,6 +1496,7 @@ export default function App({ user, onLogout }: { user: User | null; onLogout: (
               </div>
             )}
             {parkPoints && <div className="park-legend"><span style={{ color: "#c66b24" }}>●</span> GNIS park locations · 2016<br />Public access not verified</div>}
+            {countyFilter.length > 0 && <p className="filter-note">{countyFilter.length} counties selected · statewide class breaks</p>}
             <div className="legend-footer">
               {methodName(plan.method)} <span>·</span> {plan.colors.length}{" "}
               classes
@@ -1487,7 +1528,7 @@ export default function App({ user, onLogout }: { user: User | null; onLogout: (
         <div className="map-status">
           <button onClick={() => setModal("validation")}>
             <ShieldCheck size={14} />
-            <span>{parks ? 3 : 2} validation checks</span>
+            <span>County G2/G5 audit</span>
             <span className="status-dot" />
           </button>
           <span className="map-status-source">ACS 2019–2023 · NJOGIS</span>
