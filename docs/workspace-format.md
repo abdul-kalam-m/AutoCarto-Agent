@@ -92,9 +92,10 @@ and traces must still match exactly. All versions store chat in `messages`.
 V2 and v3 open with all counties and the default drawing order (counties, open
 space, then park points). Their existing trace format is preserved.
 
-V5 adds `phase2`: tract visibility, `distance_m`, `result_id`, and selected live
+V5 adds `phase2`: tract visibility, `tract_plan_id`, `distance_m`, `result_id`, and selected live
 reference IDs in drawing order. It binds the tract snapshot. Import recomputes
-proximity and checks its result hash, including gate verdicts and matched IDs.
+tract classification and proximity and checks their hashes, including gate
+verdicts and matched IDs. Autosave waits for a matching tract plan to finish.
 Changing county filters clears proximity; rerun it for the new target tract set.
 All NJ park points remain candidates across borders. V2/v3/v4 remain supported.
 Live references are never fetched on import; their selections restore but the

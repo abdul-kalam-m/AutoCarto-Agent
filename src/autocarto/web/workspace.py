@@ -38,6 +38,10 @@ def import_workspace(document):
     if document["version"] >= 5:
         from .spatial import ProximityRequest, proximity
         state = document["phase2"]
+        from .engine import _plan
+        expected_plan = _plan(**document["settings"], dataset="tracts")["plan_id"] if state["tracts"] else None
+        if state["tract_plan_id"] != expected_plan:
+            raise ValueError("Saved tract classification differs from recomputed validation")
         if state["distance_m"] is None:
             if state["result_id"] is not None:
                 raise ValueError("A proximity result requires its buffer distance")

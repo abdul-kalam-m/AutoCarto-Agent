@@ -1093,6 +1093,7 @@
       "additionalProperties": false,
       "required": [
         "tracts",
+        "tract_plan_id",
         "distance_m",
         "overlays",
         "result_id"
@@ -1100,6 +1101,13 @@
       "properties": {
         "tracts": {
           "type": "boolean"
+        },
+        "tract_plan_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{16}$"
         },
         "distance_m": {
           "type": [

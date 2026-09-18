@@ -99,9 +99,13 @@ def test_v5_roundtrip_binds_proximity_result():
                  "parks": False, "park_points": True, "visible": True, "opacity": 85, "outlines": True, "basemap": "light",
                  "view": {"center": [-74.2, 40.7], "zoom": 9, "bearing": 0, "pitch": 0, "selected_county": None},
                  "messages": [], "trace": web_trace(settings), "county_filter": [], "layer_order": ["counties", "parks", "park_points"],
-                 "phase2": {"tracts": True, "distance_m": 500, "result_id": record["result_id"], "overlays": ["roads"]}}
+                 "phase2": {"tracts": True, "tract_plan_id": _plan(**settings, dataset="tracts")["plan_id"], "distance_m": 500, "result_id": record["result_id"], "overlays": ["roads"]}}
     assert import_workspace(workspace) == workspace
     assert client.post("/api/workspace/import", json=workspace).json() == workspace
+    workspace["phase2"]["tract_plan_id"] = "a" * 16
+    with pytest.raises(ValueError, match="tract classification"):
+        import_workspace(workspace)
+    workspace["phase2"]["tract_plan_id"] = _plan(**settings, dataset="tracts")["plan_id"]
     workspace["phase2"]["distance_m"] = 600
     with pytest.raises(ValueError, match="proximity"):
         import_workspace(workspace)

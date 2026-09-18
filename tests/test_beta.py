@@ -92,12 +92,13 @@ def test_owned_projects_persist_and_conflicts(store):
 def test_phase2_project_survives_store_restart(store):
     from autocarto.web.spatial import proximity, ProximityRequest
     from autocarto.web.workspace import import_workspace
+    from autocarto.web.engine import _plan
     _, user = enroll(store)
     workspace = document()
     result = proximity(ProximityRequest(distance_m=500, counties=["34013"]))
     workspace.update(version=5, datasets=dataset_versions(5), park_points=True,
                      county_filter=["34013"], layer_order=["parks", "counties", "park_points"],
-                     phase2={"tracts": True, "distance_m": 500, "result_id": result["record"]["result_id"], "overlays": ["roads", "parcels"]})
+                     phase2={"tracts": True, "tract_plan_id": _plan(**workspace["settings"], dataset="tracts")["plan_id"], "distance_m": 500, "result_id": result["record"]["result_id"], "overlays": ["roads", "parcels"]})
     saved = store.save(user["id"], None, "Park proximity", import_workspace(workspace), 0)
     restarted = Store(str(store.engine.url))
     restored = restarted.project(user["id"], saved["id"])["workspace"]

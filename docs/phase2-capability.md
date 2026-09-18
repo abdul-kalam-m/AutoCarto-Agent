@@ -104,4 +104,7 @@ MOD-IV parcels, roads and flood areas; all five service metadata contracts were
 verified. The working tree is served locally on port 8004; Render has not been
 updated. A new Linux image build was attempted but blocked by Docker Desktop's
 inference-manager socket startup error before the Linux engine became available.
-Container verification remains outstanding; no successful build is claimed.
+The subsequent [Linux CI run](https://github.com/abdul-kalam-m/AutoCarto-Agent/actions/runs/35310445720)
+passed the 202-test suite, frontend build and actual Docker build, resolving the
+image-build verification gap without resetting local Docker or deploying Render.
+CI also exercises the runtime with a 512 MiB container limit.

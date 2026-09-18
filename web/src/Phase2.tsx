@@ -3,7 +3,7 @@ import maplibregl, { type Map as MapInstance, type GeoJSONSource, type Expressio
 import { api, formatValue, methodName, type Gate, type GeoData, type MapPlan, type Settings, type ParkPlan } from "./types";
 import { basemapAttribution, type Basemap } from "./MapCanvas";
 
-export type Phase2State = { tracts: boolean; distance_m: number | null; result_id: string | null; overlays: string[] };
+export type Phase2State = { tracts: boolean; tract_plan_id?: string | null; distance_m: number | null; result_id: string | null; overlays: string[] };
 export const EMPTY_PHASE2: Phase2State = { tracts: false, distance_m: null, result_id: null, overlays: [] };
 type Reference = { id: string; name: string; url: string; color: string; geometry: string; note: string };
 type Loaded = { data: GeoData; provenance: Record<string, unknown> };
@@ -14,11 +14,12 @@ function download(name: string, data: unknown) {
   const link = document.createElement("a"); link.href = url; link.download = name; link.click(); URL.revokeObjectURL(url);
 }
 
-export default function Phase2({ map, state, onChange, settings, counties, basePlan, opacity, outlines, basemap, offline, parks, parkPoints, parkPlan }: {
+export default function Phase2({ map, state, onChange, settings, counties, basePlan, opacity, outlines, basemap, offline, parks, parkPoints, parkPlan, onPlan }: {
   map: MapInstance | null; state: Phase2State; onChange: (value: Phase2State) => void;
   settings: Settings; counties: string[]; basePlan: MapPlan; opacity: number; outlines: boolean;
   basemap: Basemap; offline: boolean;
   parks: boolean; parkPoints: boolean; parkPlan: ParkPlan;
+  onPlan: (plan: MapPlan | null) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [tracts, setTracts] = useState<GeoData | null>(null);
@@ -50,9 +51,9 @@ export default function Phase2({ map, state, onChange, settings, counties, baseP
   }, [state.tracts, settings.metric]);
   useEffect(() => {
     let cancelled = false;
-    if (!state.tracts) return;
+    if (!state.tracts) { onPlan(null); return; }
     Promise.all([tracts ? Promise.resolve(tracts) : api<GeoData>("data/tracts"), api<MapPlan>("tract-map", settings)])
-      .then(([data, next]) => { if (!cancelled) { setTracts(data); setPlan(next); } })
+      .then(([data, next]) => { if (!cancelled) { setTracts(data); setPlan(next); onPlan(next); } })
       .catch(e => { if (!cancelled) setError(e.message); });
     return () => { cancelled = true; };
   }, [state.tracts, settings]);

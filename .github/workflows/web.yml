@@ -23,3 +23,22 @@ jobs:
       - run: npm ci && npm run build
         working-directory: web
       - run: docker build -f Dockerfile.web -t cartollm-web:ci .
+      - name: Exercise Phase 2 inside the 512 MiB runtime
+        run: |
+          docker run --rm -i --network none --memory 512m --memory-swap 512m -e AUTOCARTO_OFFLINE=1 cartollm-web:ci python - <<'PY'
+          import resource
+          from autocarto.web.engine import catalog, _plan
+          from autocarto.web.spatial import ProximityRequest, proximity, map_geometry_checks
+          catalog()
+          for metric in ('density', 'population', 'income'):
+              result = _plan(metric, 'forest', 'auto', 'tracts')
+              assert result['validation']['classification']['passed']
+              assert result['validation']['color']['passed']
+          map_geometry_checks('counties')
+          map_geometry_checks('tracts')
+          result = proximity(ProximityRequest(distance_m=500))
+          assert result['applied']
+          assert len(result['buffers']['features']) == 394
+          assert len(result['record']['matched_tract_ids']) == 790
+          print('Phase 2 container smoke passed; peak RSS MiB:', resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024)
+          PY

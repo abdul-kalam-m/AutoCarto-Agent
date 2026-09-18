@@ -174,6 +174,10 @@ export default function App({ user, onLogout }: { user: User | null; onLogout: (
   const [countyFilter, setCountyFilter] = useState<string[]>([]);
   const [layerOrder, setLayerOrder] = useState<LayerId[]>(DEFAULT_LAYER_ORDER);
   const [phase2, setPhase2] = useState<Phase2State>(EMPTY_PHASE2);
+  const [tractPlan, setTractPlan] = useState<MapPlan | null>(null);
+  const tractPlanReady = !phase2.tracts || (tractPlan?.metric === settings.metric && tractPlan.requested_palette === settings.palette && tractPlan.requested_method === settings.method);
+  const saveReady = useRef(tractPlanReady);
+  saveReady.current = tractPlanReady;
   const [plan, setPlan] = useState<MapPlan | null>(null);
   const [parks, setParks] = useState(saved.parks);
   const [visible, setVisible] = useState(true);
@@ -234,11 +238,13 @@ export default function App({ user, onLogout }: { user: User | null; onLogout: (
   }
 
   async function saveProject() {
+    if (!tractPlanReady) { setSaveStatus("Waiting for tract validation…"); return; }
     if (!user || !initialized || !mapRef.current || busy || saveBlocked.current) return;
     if (saveFlight.current) return saveFlight.current;
     const run = async () => {
       try {
         do {
+          if (!saveReady.current) { pending.current = true; return; }
           pending.current = false;
           const workspace = currentRecord.current();
           const name = currentName.current.trim() || "Untitled map";
@@ -266,7 +272,7 @@ export default function App({ user, onLogout }: { user: User | null; onLogout: (
     pending.current = true;
     const timer = setTimeout(() => { void saveProject(); }, 1000);
     return () => clearTimeout(timer);
-  }, [initialized, settings, parks, parkPoints, countyFilter, layerOrder, phase2, visible, opacity, outlines, basemap, selected, messages, plan, projectName, cameraRevision, busy]);
+  }, [initialized, settings, parks, parkPoints, countyFilter, layerOrder, phase2, tractPlan, visible, opacity, outlines, basemap, selected, messages, plan, projectName, cameraRevision, busy]);
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
       if (user && (pending.current || saveFlight.current)) { event.preventDefault(); event.returnValue = ""; }
@@ -276,6 +282,7 @@ export default function App({ user, onLogout }: { user: User | null; onLogout: (
   }, [user]);
 
   function workspaceRecord(): Workspace {
+    if (!tractPlanReady) throw new Error("Wait for tract classification to finish loading before saving.");
     if (!catalog || !plan || !mapRef.current)
       throw new Error("Wait for the map to finish loading.");
     const map = mapRef.current;
@@ -284,7 +291,7 @@ export default function App({ user, onLogout }: { user: User | null; onLogout: (
     return {
       kind: "workspace",
       version: 5,
-      phase2,
+      phase2: { ...phase2, tract_plan_id: phase2.tracts ? tractPlan!.plan_id : null },
       county_filter: countyFilter,
       layer_order: layerOrder,
       datasets: {
@@ -1205,7 +1212,7 @@ export default function App({ user, onLogout }: { user: User | null; onLogout: (
           }}
           onViewChange={() => setCameraRevision(n => n + 1)}
         />
-        <Phase2 map={mapRef.current} state={phase2} onChange={next => { setPhase2(next); if (next.distance_m !== null) setParkPoints(true); }} settings={settings} counties={countyFilter} basePlan={plan} opacity={opacity} outlines={outlines} basemap={basemap} offline={catalog.offline} parks={parks} parkPoints={parkPoints} parkPlan={catalog.park_plan} />
+        <Phase2 map={mapRef.current} state={phase2} onChange={next => { setPhase2(next); if (next.distance_m !== null) setParkPoints(true); }} settings={settings} counties={countyFilter} basePlan={plan} opacity={opacity} outlines={outlines} basemap={basemap} offline={catalog.offline} parks={parks} parkPoints={parkPoints} parkPlan={catalog.park_plan} onPlan={setTractPlan} />
         <div className="map-topbar">
           <button className="export-button" aria-pressed={parkPoints} onClick={() => setParkPoints(value => !value)} title={catalog.manifest.coverage.park_points}>{parkPoints ? "Hide" : "Show"} historical park points</button>
           <div className="map-location">
