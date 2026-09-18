@@ -1697,7 +1697,7 @@ export default function App({ user, onLogout }: { user: User | null; onLogout: (
                   <Layers3 size={23} />
                   <div>
                     <strong>Import workspace</strong>
-                    <span>Restore a v2 workspace · maximum 1 MiB</span>
+                    <span>Restore a v2–v5 workspace · maximum 1 MiB</span>
                   </div>
                   <ArrowRight size={18} />
                 </button>

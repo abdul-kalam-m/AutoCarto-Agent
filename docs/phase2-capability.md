@@ -107,4 +107,10 @@ inference-manager socket startup error before the Linux engine became available.
 The subsequent [Linux CI run](https://github.com/abdul-kalam-m/AutoCarto-Agent/actions/runs/35310445720)
 passed the 202-test suite, frontend build and actual Docker build, resolving the
 image-build verification gap without resetting local Docker or deploying Render.
-CI also exercises the runtime with a 512 MiB container limit.
+The [final contract verification](https://github.com/abdul-kalam-m/AutoCarto-Agent/actions/runs/35310765339)
+passed all **202 tests**, the frontend and Docker builds, and the spatial runtime
+smoke test under a **512 MiB** container limit (peak process RSS **401.7 MiB**).
+This is a single-process smoke measurement, not a concurrent-user load test.
+The verified GIS wheel versions are pinned in `constraints-web-linux.txt`.
+Browser checks also loaded 1,522 road features after rejecting an oversized
+query, and exported a v5 workspace with tract-plan and operation-result hashes.

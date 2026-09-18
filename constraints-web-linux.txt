@@ -3,6 +3,12 @@ numpy==2.4.6
 scipy==1.17.1
 matplotlib==3.11.2
 pyproj==3.8.0
+geopandas==1.1.4
+shapely==2.1.2
+pyogrio==0.13.0
+pandas==3.0.6
+jenkspy==0.4.1
+colorspacious==1.1.2
 SQLAlchemy==2.0.54
 psycopg==3.3.5
 psycopg-binary==3.3.5
